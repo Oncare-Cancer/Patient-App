@@ -1,405 +1,357 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
-  Text,
+  Pressable,
   StyleSheet,
-  TouchableOpacity,
-  RefreshControl,
-  Alert,
-  FlatList,
-  Image,
+  Linking,
+  Share,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import {
-  FileText,
   Download,
-  Calendar,
-  User as UserIcon,
-  File,
+  FileText,
+  Search,
+  Share2,
+  Upload,
 } from 'lucide-react-native';
-import { useAuth } from '../../contexts/AuthContext';
-import { Document } from '../../types';
-import { COLORS, SPACING, FONT_SIZES, LOGO_URL } from '../../constants/theme';
-import { useFocusEffect } from '@react-navigation/native';
-import { Linking } from 'react-native';
+import {
+  AttachSheet,
+  Btn,
+  Card,
+  Chip,
+  EmptyState,
+  ErrorState,
+  Field,
+  Screen,
+  ScreenHeader,
+  SkeletonList,
+  Txt,
+} from '@/components/ui';
+import { useAttachments } from '@/hooks/useAttachments';
+import { useDebounced } from '@/hooks/useDebounced';
+import { useT } from '@/contexts/LanguageContext';
+import {
+  listRecords,
+  groupByMonth,
+  type PatientRecord,
+  type RecordCategory,
+} from '@/services/records';
+import { uploadFiles, getFileUrl } from '@/services/upload';
+import { toastError, toastSuccess } from '@/utils/toast';
+import {
+  PALETTE,
+  RADIUS,
+  SPACE,
+  SURFACE,
+  TEXT,
+  TOUCH_MIN,
+} from '@/constants/theme';
+import type { StringKey } from '@/constants/i18n';
 
-const PAGE_SIZE = 8;
+/**
+ * D2 — Records.
+ *
+ * Replaces a flat list that showed raw file names like "Flux_Dev_A_young_mus"
+ * (issue #9). Titles, categories and the source line are derived in
+ * services/records.ts — see the long note there on why they cannot come from
+ * the HIS.
+ *
+ * The category chips only render for categories that actually have documents.
+ * The design shows four fixed chips, but the data distinguishes little beyond
+ * prescriptions, and four chips where two always read "0" would be a worse
+ * answer than fewer honest ones.
+ */
 
-export default function DocumentsScreen() {
-  const { patient, documents, fetchDocuments } = useAuth();
+const CATEGORY_LABEL: Record<RecordCategory, StringKey> = {
+  lab: 'ui.records.lab',
+  scan: 'ui.records.scans',
+  rx: 'ui.records.rx',
+  discharge: 'ui.records.discharge',
+  other: 'ui.records.other',
+};
 
-  const [page, setPage] = useState(1);
+const BADGE_FILL: Record<RecordCategory, string> = {
+  lab: '#E7F6EC',
+  scan: '#E8F0FE',
+  rx: '#F1E9FF',
+  discharge: '#FEF3E2',
+  other: '#F1F0F6',
+};
+
+export default function Records() {
+  const t = useT();
+  const router = useRouter();
+
+  const [records, setRecords] = useState<PatientRecord[]>([]);
+  const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState<RecordCategory | null>(null);
+  const [uploading, setUploading] = useState(false);
 
-  /* =========================
-     Load on focus (background)
-  ========================= */
-  useFocusEffect(
-    useCallback(() => {
-      // Fetch in background if we already have documents
-      if (patient) {
-        fetchDocuments(true);
-      }
-    }, [patient, fetchDocuments])
-  );
+  const attach = useAttachments();
+  const debounced = useDebounced(search, 250);
 
-  /* =========================
-     Pull to refresh
-  ========================= */
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchDocuments(true);
-    setRefreshing(false);
-  };
+  const load = useCallback(async () => {
+    try {
+      setRecords(await listRecords());
+      setState('ready');
+    } catch {
+      setState('error');
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
-  /* =========================
-     Pagination / Derived State
-  ========================= */
-  const allDocuments = documents || [];
-  const visibleDocuments = allDocuments.slice(0, page * PAGE_SIZE);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  const loadMore = () => {
-    if (visibleDocuments.length >= allDocuments.length) return;
-    setPage(prev => prev + 1);
-  };
+  /** Only the categories present in the data get a chip. */
+  const presentCategories = useMemo(() => {
+    const counts = new Map<RecordCategory, number>();
+    records.forEach((r) => counts.set(r.category, (counts.get(r.category) ?? 0) + 1));
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  }, [records]);
 
-  const formatDate = (dateString: string) =>
-    new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+  const filtered = useMemo(() => {
+    const q = debounced.trim().toLowerCase();
+    return records.filter((r) => {
+      if (category && r.category !== category) return false;
+      if (!q) return true;
+      return (
+        r.title.toLowerCase().includes(q) ||
+        (r.fileName ?? '').toLowerCase().includes(q)
+      );
     });
+  }, [records, category, debounced]);
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  const groups = useMemo(() => groupByMonth(filtered), [filtered]);
+
+  /* ----------------------------------------------------------------- upload */
+
+  useEffect(() => {
+    if (attach.files.length === 0 || uploading) return;
+    setUploading(true);
+    uploadFiles(attach.files, 'report')
+      .then(() => {
+        attach.setFiles([]);
+        toastSuccess(t('ui.records.uploadReport'), t('ui.records.uploadedByYou'));
+        return load();
+      })
+      .catch(() => toastError(t('ui.upload.uploadFailed'), t('ui.common.retry')))
+      .finally(() => setUploading(false));
+    // `attach` is a fresh object each render; keying on the file count is what
+    // makes this fire once per pick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attach.files.length]);
+
+  /* ------------------------------------------------------------- open/share */
+
+  const open = async (r: PatientRecord) => {
+    // Private documents are behind a short-lived presigned URL; legacy ones
+    // still have a direct url.
+    const url = r.fileKey ? await getFileUrl(r.fileKey) : r.url;
+    if (!url) {
+      toastError(t('ui.common.somethingWrong'));
+      return;
+    }
+    Linking.openURL(url).catch(() => toastError(t('ui.common.somethingWrong')));
   };
 
-  /* =========================
-     Skeleton (ONLY if no documents yet)
-  ========================= */
-  const showSkeleton = !documents; // Null means not loaded yet
-
-  const SkeletonCard = () => (
-    <View style={styles.skeletonCard}>
-      <View style={styles.skeletonRow}>
-        <View style={styles.skeletonIcon} />
-        <View style={styles.skeletonTitle} />
-      </View>
-      <View style={styles.skeletonLineSmall} />
-      <View style={styles.skeletonFooter} />
-    </View>
-  );
-
-  /* =========================
-     Premium Document Card
-  ========================= */
-  const DocumentCard = React.memo(({ document }: { document: Document }) => {
-    const handleDownload = async (fileUrl: string) => {
-      try {
-        const supported = await Linking.canOpenURL(fileUrl);
-        if (supported) await Linking.openURL(fileUrl);
-      } catch {
-        Alert.alert('Error', 'Failed to open file');
-      }
-    };
-
-    return (
-      <View style={styles.brandCard}>
-        <View style={styles.brandAccentStrip} />
-
-        <View style={styles.cardInner}>
-          <View style={styles.cardHeader}>
-            <View style={styles.brandIconWrapper}>
-              <File size={18} color={COLORS.primary} />
-            </View>
-
-            <View style={{ flex: 1 }}>
-              <Text style={styles.brandTitle} numberOfLines={2}>
-                {document.description}
-              </Text>
-              <Text style={styles.brandSubText}>
-                {formatDate(document.uploaded_at)}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.cardFooter}>
-            <View style={styles.uploaderRow}>
-              <UserIcon size={12} color={COLORS.textSecondary} />
-              <Text style={styles.uploaderText}>
-                {document.uploaded_by?.split('@')[0]}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.brandDownloadPill}
-              onPress={() => handleDownload(document.file_url)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.brandFileSize}>
-                {formatFileSize(document.file_size)}
-              </Text>
-              <Download size={14} color={COLORS.white} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    );
-  });
+  const share = async (r: PatientRecord) => {
+    const url = r.fileKey ? await getFileUrl(r.fileKey) : r.url;
+    if (!url) return;
+    Share.share({ message: `${r.title}\n${url}` }).catch(() => {});
+  };
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={[COLORS.primary, COLORS.secondary, COLORS.accent1]}
-        style={styles.headerBackground}
-      />
+    <View style={styles.root}>
+      <ScreenHeader title={t('ui.records.title')} back={false} />
 
-      <View style={styles.header}>
-        <Image source={{ uri: LOGO_URL }} style={styles.logoImg} resizeMode="contain" />
-        <View style={styles.titleRow}>
-          <File size={20} color={COLORS.white} strokeWidth={2.5} />
-          <Text style={styles.headerTitle}>Medical Documents</Text>
-        </View>
-        <Text style={styles.headerSubtitle}>
-          {allDocuments.length} document{allDocuments.length !== 1 ? 's' : ''}
-        </Text>
-      </View>
-
-      {showSkeleton ? (
-        <View style={styles.documentsContainer}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <SkeletonCard key={`skeleton-${i}`} />
-          ))}
-        </View>
-      ) : (
-        <FlatList
-          data={visibleDocuments}
-          keyExtractor={(item) => String(item.id)}
-          renderItem={({ item }) => <DocumentCard document={item} />}
-          contentContainerStyle={styles.documentsContainer}
-          showsVerticalScrollIndicator={false}
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.4}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <FileText size={64} color={COLORS.gray} />
-              <Text style={styles.emptyStateText}>No documents yet</Text>
-            </View>
-          }
+      <Screen
+        withNav
+        refreshing={refreshing}
+        onRefresh={() => {
+          setRefreshing(true);
+          void load();
+        }}
+      >
+        <Field
+          icon={<Search size={15} color={TEXT.muted} strokeWidth={2} />}
+          placeholder={t('ui.records.search')}
+          value={search}
+          onChangeText={setSearch}
+          returnKeyType="search"
         />
-      )}
+
+        {presentCategories.length > 1 ? (
+          <View style={styles.chips}>
+            <Chip
+              label={t('ui.records.all')}
+              count={records.length}
+              selected={category === null}
+              onPress={() => setCategory(null)}
+            />
+            {presentCategories.map(([cat, count]) => (
+              <Chip
+                key={cat}
+                label={t(CATEGORY_LABEL[cat])}
+                count={count}
+                selected={category === cat}
+                onPress={() => setCategory(category === cat ? null : cat)}
+              />
+            ))}
+          </View>
+        ) : null}
+
+        <Btn
+          label={t('ui.records.uploadReport')}
+          variant="gradient"
+          loading={uploading}
+          onPress={attach.openSheet}
+          icon={<Upload size={15} color={PALETTE.white} strokeWidth={2.2} />}
+          style={styles.uploadBtn}
+        />
+
+        {state === 'loading' ? (
+          <SkeletonList count={6} lines={1} />
+        ) : state === 'error' ? (
+          <ErrorState
+            onRetry={() => void load()}
+            icon={<FileText size={22} color={PALETTE.purple} strokeWidth={2} />}
+          />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={<FileText size={22} color={PALETTE.purple} strokeWidth={2} />}
+            title={t('ui.records.empty')}
+            body={t('ui.records.emptyBody')}
+          />
+        ) : (
+          groups.map((group) => (
+            <View key={group.label}>
+              <Txt variant="helper" color={TEXT.muted} style={styles.monthLabel}>
+                {group.label}
+              </Txt>
+
+              {group.items.map((r) => (
+                <Pressable
+                  key={r.id}
+                  onPress={() => void open(r)}
+                  accessibilityRole="button"
+                  accessibilityLabel={r.title}
+                  style={({ pressed }) => [pressed && styles.pressed]}
+                >
+                  <Card tone="plain" style={styles.row}>
+                    <View
+                      style={[
+                        styles.badge,
+                        { backgroundColor: BADGE_FILL[r.category] },
+                      ]}
+                    >
+                      <Txt variant="helperSm" script="latin">
+                        {r.badge}
+                      </Txt>
+                    </View>
+
+                    <View style={styles.meta}>
+                      <View style={styles.titleRow}>
+                        <Txt variant="bodyMedium" numberOfLines={1} style={styles.flex}>
+                          {r.title}
+                        </Txt>
+                        {r.isNew ? (
+                          <View style={styles.newTag}>
+                            <Txt variant="helperSm" color={PALETTE.white}>
+                              {t('ui.records.new')}
+                            </Txt>
+                          </View>
+                        ) : null}
+                      </View>
+
+                      <Txt
+                        variant="helperSm"
+                        color={TEXT.muted}
+                        script="latin"
+                        numberOfLines={1}
+                      >
+                        {r.source === 'uploadedByYou'
+                          ? t('ui.records.uploadedByYou')
+                          : r.source}
+                        {r.fileName ? ` · ${r.fileName}` : ''}
+                      </Txt>
+                    </View>
+
+                    <Pressable
+                      onPress={() => void share(r)}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('ui.common.share')}
+                      hitSlop={10}
+                      style={styles.action}
+                    >
+                      <Share2 size={15} color={TEXT.muted} strokeWidth={2.2} />
+                    </Pressable>
+                    <Pressable
+                      onPress={() => void open(r)}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('ui.common.download')}
+                      hitSlop={10}
+                      style={styles.action}
+                    >
+                      <Download size={15} color={TEXT.muted} strokeWidth={2.2} />
+                    </Pressable>
+                  </Card>
+                </Pressable>
+              ))}
+            </View>
+          ))
+        )}
+      </Screen>
+
+      <AttachSheet
+        visible={attach.sheetOpen}
+        onClose={attach.closeSheet}
+        onCamera={attach.fromCamera}
+        onGallery={attach.fromGallery}
+        onDocument={attach.fromDocument}
+      />
     </View>
   );
 }
 
-/* =========================
-   Styles
-========================= */
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f4f5f9' },
-
-  headerBackground: {
-    position: 'absolute',
-    height: 210,
-    left: 0,
-    right: 0,
+  root: { flex: 1, backgroundColor: SURFACE.screen },
+  flex: { flex: 1 },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACE.xs,
+    marginTop: SPACE.sm,
   },
-
-  header: {
-    paddingTop: 60,
-    paddingBottom: 16,
-    paddingHorizontal: 22,
-    alignItems: 'center',
-  },
-
-  logoImg: {
-    width: 120,
-    height: 36,
-    marginBottom: 14,
-  },
-
-  titleRow: {
+  uploadBtn: { marginTop: SPACE.md, marginBottom: SPACE.lg },
+  monthLabel: { marginTop: SPACE.sm, marginBottom: SPACE.xs },
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: SPACE.sm,
+    marginBottom: SPACE.xs,
+    minHeight: TOUCH_MIN + 8,
   },
-
-  headerTitle: {
-    fontSize: 21,
-    fontWeight: '700',
-    color: COLORS.white,
-    letterSpacing: -0.2,
-  },
-
-  headerSubtitle: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.55)',
-    marginTop: 3,
-  },
-
-  documentsContainer: {
-    padding: 20,
-    paddingTop: 24,
-  },
-
-  /* Skeleton */
-
-  skeletonCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(238,240,248,0.9)',
-  },
-
-  skeletonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-
-  skeletonIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#f0f1f6',
-    marginRight: 14,
-  },
-
-  skeletonTitle: {
-    height: 14,
-    width: '65%',
-    backgroundColor: '#f0f1f6',
-    borderRadius: 6,
-  },
-
-  skeletonLineSmall: {
-    height: 10,
-    width: '40%',
-    backgroundColor: '#f0f1f6',
-    borderRadius: 6,
-    marginBottom: 10,
-  },
-
-  skeletonFooter: {
-    height: 12,
-    width: '30%',
-    backgroundColor: '#f0f1f6',
-    borderRadius: 6,
-  },
-
-  /* Premium Brand Card */
-
-  brandCard: {
-    position: 'relative',
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
-    marginBottom: 14,
-    overflow: 'hidden',
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 20,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(238,240,248,0.9)',
-  },
-
-  brandAccentStrip: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 3,
-    backgroundColor: COLORS.accent1,
-    opacity: 0.7,
-  },
-
-  cardInner: {
-    padding: 16,
-    paddingLeft: 18,
-  },
-
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-
-  brandIconWrapper: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: COLORS.primary + '10',
+  badge: {
+    minWidth: 42,
+    height: 30,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    paddingHorizontal: 5,
   },
-
-  brandTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.primary,
+  meta: { flex: 1 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACE.xs },
+  newTag: {
+    backgroundColor: PALETTE.pink,
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
   },
-
-  brandSubText: {
-    marginTop: 2,
-    fontSize: 11,
-    color: COLORS.gray,
-  },
-
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#f0f1f6',
-    paddingTop: 10,
-  },
-
-  uploaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-
-  uploaderText: {
-    fontSize: 11,
-    color: COLORS.gray,
-  },
-
-  brandDownloadPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 10,
-    backgroundColor: COLORS.primary,
-  },
-
-  brandFileSize: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: COLORS.white,
-  },
-
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 80,
-  },
-
-  emptyStateText: {
-    marginTop: 12,
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.gray,
-  },
+  action: { padding: 2 },
+  pressed: { opacity: 0.9 },
 });

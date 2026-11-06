@@ -23,7 +23,11 @@ try {
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    // shouldShowAlert is deprecated in SDK 54; it is split into banner + list.
+    // Both are required by NotificationBehavior, and omitting them was a type
+    // error that would have silently changed how notifications present.
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),

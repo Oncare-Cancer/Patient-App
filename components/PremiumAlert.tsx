@@ -7,7 +7,7 @@ import {
   Pressable,
   Dimensions,
 } from 'react-native';
-import { COLORS } from '../constants/theme';
+import { COLORS, FONTS } from '../constants/theme';
 import { AlertCircle, CheckCircle, Info, X } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
 
   title: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: FONTS.semibold,
     color: COLORS.primary,
     textAlign: 'center',
     marginBottom: 8,
@@ -180,6 +180,7 @@ const styles = StyleSheet.create({
 
   message: {
     fontSize: 14,
+    fontFamily: FONTS.regular,
     color: COLORS.gray,
     textAlign: 'center',
     lineHeight: 20,
@@ -202,6 +203,6 @@ const styles = StyleSheet.create({
   buttonText: {
     color: COLORS.white,
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: FONTS.semibold,
   },
 });

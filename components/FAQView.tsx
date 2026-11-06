@@ -19,7 +19,7 @@ import {
   Mail,
   CheckCircle,
 } from 'lucide-react-native';
-import { COLORS } from '@/constants/theme';
+import { COLORS, FONTS } from '@/constants/theme';
 import { fetchWrapper } from '@/utils/fetchWrapper';
 
 export function FAQView({ data, onClose }: any) {
@@ -89,7 +89,7 @@ export function FAQView({ data, onClose }: any) {
     <View style={{ flex: 1 }}>
       <LinearGradient
         colors={[COLORS.primary, COLORS.secondary]}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
 
       <View style={styles.header}>
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
   },
   heading: {
     fontSize: 24,
-    fontWeight: '800',
+    fontFamily: FONTS.semibold,
     color: COLORS.white,
   },
   subheading: {
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
 
   groupTitle: {
     fontSize: 15,
-    fontWeight: '800',
+    fontFamily: FONTS.semibold,
     color: COLORS.primary,
     letterSpacing: 0.4,
   },
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
   },
 
   q: {
-    fontWeight: '700',
+    fontFamily: FONTS.semibold,
     color: COLORS.primary,
     flex: 1,
     marginRight: 8,
@@ -404,11 +404,11 @@ const styles = StyleSheet.create({
 
   fabText: {
     color: COLORS.white,
-    fontWeight: '700',
+    fontFamily: FONTS.semibold,
   },
 
   formBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.35)',
   },
 
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
 
   formTitle: {
     fontSize: 18,
-    fontWeight: '800',
+    fontFamily: FONTS.semibold,
     color: COLORS.textPrimary,
   },
 
@@ -451,6 +451,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 16,
     fontSize: 14,
+    fontFamily: FONTS.regular,
   },
 
   textArea: {
@@ -461,6 +462,7 @@ const styles = StyleSheet.create({
   inlineError: {
     color: COLORS.error,
     fontSize: 12,
+    fontFamily: FONTS.medium,
     marginTop: -8,
     marginBottom: 12,
   },
@@ -474,7 +476,7 @@ const styles = StyleSheet.create({
 
   submitText: {
     color: COLORS.white,
-    fontWeight: '700',
+    fontFamily: FONTS.semibold,
   },
 
   successWrap: {
@@ -484,7 +486,7 @@ const styles = StyleSheet.create({
 
   successTitle: {
     fontSize: 20,
-    fontWeight: '800',
+    fontFamily: FONTS.semibold,
     color: COLORS.textPrimary,
     marginTop: 16,
   },
@@ -506,6 +508,6 @@ const styles = StyleSheet.create({
 
   successBtnText: {
     color: COLORS.white,
-    fontWeight: '700',
+    fontFamily: FONTS.semibold,
   },
 });

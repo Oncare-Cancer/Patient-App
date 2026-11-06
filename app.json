@@ -70,7 +70,20 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font",
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/Montserrat-Regular.ttf",
+            "./assets/fonts/Montserrat-Medium.ttf",
+            "./assets/fonts/Montserrat-SemiBold.ttf",
+            "./assets/fonts/NotoSansDevanagari-Regular.ttf",
+            "./assets/fonts/NotoSansDevanagari-Medium.ttf",
+            "./assets/fonts/NotoSansDevanagari-SemiBold.ttf"
+          ]
+        }
+      ],
+      "expo-localization",
       "expo-web-browser",
       "./plugins/withAndroidManifestFix",
       "./plugins/withFirebaseModularHeaders"

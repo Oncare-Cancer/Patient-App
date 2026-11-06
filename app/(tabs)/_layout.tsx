@@ -1,133 +1,92 @@
-import { Tabs } from 'expo-router';
-import {
-  Home,
-  FileText,
-  User,
-  ClipboardPlus,
-  Plus,
-} from 'lucide-react-native';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { COLORS } from '../../constants/theme';
-import { FloatingCallBubble } from '../../components/FloatingCallBubble';
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
+import { Tabs, useRouter, useSegments } from 'expo-router';
+import { BottomNav, type TabKey } from '@/components/ui';
+import { SURFACE } from '@/constants/theme';
+
+/**
+ * The five tabs, with the design's floating navy bar.
+ *
+ * Two things changed from the previous build:
+ *
+ *  - The native tab bar is hidden and `components/ui/BottomNav` is rendered over
+ *    the stack instead. The design's bar floats inset from the screen edges with
+ *    a raised white "+" that overhangs it, which a native tab bar cannot do.
+ *  - `FloatingCallBubble` is gone. It was the floating SOS that covered "Review
+ *    Appointment" and "Contact Support" — issue #8. SOS now lives in the header
+ *    of every screen via `ScreenHeader`, so it cannot overlap anything.
+ *
+ * Book is not a tab. It is a route the "+" pushes to, which is why `BottomNav`
+ * takes `onBook` separately from `onTab`.
+ */
+
+/** Maps the current route segment to the nav's active key. */
+function activeTab(segment: string | undefined): TabKey {
+  switch (segment) {
+    case 'appointments':
+      return 'activity';
+    case 'documents':
+      return 'records';
+    case 'profile':
+      return 'profile';
+    default:
+      return 'home';
+  }
+}
 
 export default function TabLayout() {
+  const router = useRouter();
+  const segments = useSegments();
+
+  // segments is e.g. ['(tabs)', 'documents'].
+  const current = activeTab(segments[1] as string | undefined);
+
+  const go = (key: TabKey) => {
+    switch (key) {
+      case 'home':
+        router.replace('/(tabs)');
+        return;
+      case 'activity':
+        router.replace('/(tabs)/appointments');
+        return;
+      case 'records':
+        router.replace('/(tabs)/documents');
+        return;
+      case 'profile':
+        router.replace('/(tabs)/profile');
+        return;
+    }
+  };
+
   return (
-    <View style={{ flex: 1 }}>
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.gray,
-        tabBarStyle: {
-          backgroundColor: COLORS.white,
-          borderTopWidth: 1,
-          borderTopColor: COLORS.border,
-          height: 80,
-          paddingBottom: 8,
-          paddingTop: 8,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
-        },
-      }}
-    >
-      {/* Home */}
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ size, color }) => (
-            <Home size={size} color={color} />
-          ),
+    <View style={styles.root}>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          // The design's bar is rendered below; the native one would sit under
+          // it and eat the bottom inset.
+          tabBarStyle: { display: 'none' },
         }}
-      />
+      >
+        <Tabs.Screen name="index" />
+        <Tabs.Screen name="book" />
+        <Tabs.Screen name="appointments" />
+        <Tabs.Screen name="documents" />
+        <Tabs.Screen name="profile" />
+      </Tabs>
 
-      {/* Documents */}
-      <Tabs.Screen
-        name="documents"
-        options={{
-          title: 'Documents',
-          tabBarIcon: ({ size, color }) => (
-            <FileText size={size} color={color} />
-          ),
-        }}
+      <BottomNav
+        active={current}
+        onTab={go}
+        onBook={() => router.push('/(tabs)/book')}
       />
-
-      {/* BOOK – CENTER ACTION */}
-      <Tabs.Screen
-        name="book"
-        options={{
-          title: '',
-          tabBarButton: (props) => (
-            <TouchableOpacity
-              {...props}
-              style={styles.bookButtonWrapper}
-              activeOpacity={0.9}
-            >
-              <View style={styles.bookButton}>
-                <Plus size={26} color={COLORS.white} />
-              </View>
-              <Text style={styles.bookLabel}>Book</Text>
-            </TouchableOpacity>
-          ),
-        }}
-      />
-
-      {/* Appointments */}
-      <Tabs.Screen
-        name="appointments"
-        options={{
-          title: 'Appointments',
-          tabBarIcon: ({ size, color }) => (
-            <ClipboardPlus size={size} color={color} />
-          ),
-        }}
-      />
-
-      {/* Profile */}
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ size, color }) => (
-            <User size={size} color={color} />
-          ),
-        }}
-      />
-    </Tabs>
-    <FloatingCallBubble />
     </View>
   );
 }
 
-/* ================= STYLES ================= */
-
 const styles = StyleSheet.create({
-  bookButtonWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    top: -20,
-  },
-
-  bookButton: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-
-  bookLabel: {
-    marginTop: 4,
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.primary,
+  root: {
+    flex: 1,
+    backgroundColor: SURFACE.screen,
   },
 });

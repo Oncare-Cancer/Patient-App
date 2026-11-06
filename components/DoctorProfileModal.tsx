@@ -8,8 +8,23 @@ import {
   ScrollView,
   Modal,
 } from 'react-native';
-import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
+import { COLORS, SPACING, FONT_SIZES, FONTS } from '../constants/theme';
 import { X } from 'lucide-react-native';
+
+/**
+ * Renders an experience value as a single readable line.
+ *
+ * The CMS field is inconsistent: sometimes "15", sometimes "15+",
+ * sometimes "15+ Years". Appending " years of experience" unconditionally gave
+ * "15+ Years years of experience" — issue #7 in the redesign's bug list.
+ */
+const experienceText = (raw: unknown): string => {
+  const text = String(raw).trim();
+  if (!text) return '';
+  // Already mentions years in some form — leave the wording alone.
+  if (/year/i.test(text)) return `${text} of experience`.replace(/\s+/g, ' ');
+  return `${text} years of experience`;
+};
 
 const DoctorProfileModal = ({ doctor, onClose }: any) => {
   const details = doctor?.doctorDetails || {};
@@ -64,9 +79,13 @@ const DoctorProfileModal = ({ doctor, onClose }: any) => {
             )}
 
             {/* ================= EXPERIENCE ================= */}
+            {/* Issue #7: this appended " years of experience" to a CMS value
+                that already reads "15+ Years", producing "15+ Years years of
+                experience". The suffix is now added only when the value does
+                not already carry it. */}
             {details.experience && (
               <Text style={styles.experience}>
-                {details.experience} years of experience
+                {experienceText(details.experience)}
               </Text>
             )}
 
@@ -137,14 +156,14 @@ const styles = StyleSheet.create({
 
   headerTitle: {
     fontSize: FONT_SIZES.sm + 2,
-    fontWeight: '700',
+    fontFamily: FONTS.semibold,
     color: COLORS.primary,
   },
 
   headerName: {
     marginTop: 2,
     fontSize: FONT_SIZES.md + 2,
-    fontWeight: '800',
+    fontFamily: FONTS.semibold,
     color: COLORS.primary,
   },
 
@@ -163,7 +182,7 @@ const styles = StyleSheet.create({
 
   speciality: {
     fontSize: FONT_SIZES.sm + 1,
-    fontWeight: '600',
+    fontFamily: FONTS.semibold,
     color: '#1F2937',
     textAlign: 'center',
     marginTop: 4,
@@ -171,7 +190,7 @@ const styles = StyleSheet.create({
 
   experience: {
     fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
+    fontFamily: FONTS.semibold,
     color: COLORS.secondary,
     textAlign: 'center',
     marginTop: 6,
@@ -185,14 +204,14 @@ const styles = StyleSheet.create({
 
   sectionTitle: {
     fontSize: FONT_SIZES.sm + 1,
-    fontWeight: '800',
+    fontFamily: FONTS.semibold,
     color: COLORS.primary,
     marginBottom: 8,
   },
 
   sectionValue: {
     fontSize: FONT_SIZES.sm + 1,
-    fontWeight: '400',
+    fontFamily: FONTS.regular,
     color: '#1F2937',
     lineHeight: 24,
     marginBottom: 4,

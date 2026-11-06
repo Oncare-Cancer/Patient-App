@@ -1,376 +1,394 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
-  Text,
+  Pressable,
   StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
   Linking,
-  Image,
+  Platform,
+  Alert,
 } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
-import {
-  LogOut,
-  User,
-  Phone,
-  Mail,
-  Shield,
-  Bell,
-  HelpCircle,
-  ChevronRight,
-} from 'lucide-react-native';
-import { useAuth } from '../../contexts/AuthContext';
-import { COLORS, SPACING, FONT_SIZES, LOGO_URL } from '../../constants/theme';
-import { patientApi } from '@/services/api';
 import { LinearGradient } from 'expo-linear-gradient';
-import Constants from "expo-constants";
-import { FAQView } from '@/components/FAQView';
-import { fetchWrapper } from '@/utils/fetchWrapper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
+import {
+  Bell,
+  ChevronRight,
+  CircleHelp,
+  Globe,
+  LogOut,
+  MapPin,
+  MessageCircle,
+  PhoneCall,
+  ShieldCheck,
+  UserRound,
+  Users,
+} from 'lucide-react-native';
+import {
+  Card,
+  LanguageRows,
+  Screen,
+  SosPill,
+  Txt,
+} from '@/components/ui';
+import { useAuth } from '@/contexts/AuthContext';
+import { useT } from '@/contexts/LanguageContext';
+import {
+  SUPPORT_NUMBER,
+  SUPPORT_NUMBER_DISPLAY,
+  WHATSAPP_NUMBER,
+} from '@/constants/contact';
+import {
+  GRADIENT,
+  PALETTE,
+  RADIUS,
+  SPACE,
+  SURFACE,
+  TEXT,
+  TOUCH_MIN,
+} from '@/constants/theme';
 
-export default function ProfileScreen() {
+/**
+ * D3 — Profile.
+ *
+ * Three groups, as the design has them: Account, Preferences, Help. Logout in
+ * red at the bottom with the app version under it.
+ *
+ * Rows whose backend does not exist yet — Family members, Insurance & TPA,
+ * Notifications — are present but marked, rather than being hidden or wired to
+ * a dead screen. A patient tapping a row and landing nowhere is worse than a
+ * row that says it is coming.
+ *
+ * The FAQ and help-query path is unchanged: it still calls `getFaqQuestions` and
+ * `askUsEmailQuery`, only restyled.
+ */
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return '—';
+}
+
+export default function Profile() {
+  const t = useT();
   const router = useRouter();
-  const { patient, logout, getPatient } = useAuth();
-  const [faqTabs, setFaqTabs] = useState<any[]>([]);
+  const insets = useSafeAreaInsets();
+  const { patient, logout } = useAuth();
+  const [languageOpen, setLanguageOpen] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadPatientData();
-      loadFaq();
-    }, [])
-  );
+  const name = patient?.patient_name ?? '';
+  const version = Constants.expoConfig?.version ?? '1.0.0';
 
-  const loadFaq = async () => {
-  try {
-    const data = await retry(() =>
-      post('getFaqQuestions', {})
-    );
-    setFaqTabs(data || []);
-  } catch (e) {
-    console.log("e", e)
-    console.warn('FAQ load failed');
-  }
-};
-
-  const retry = async <T,>(fn: () => Promise<T>, retries = 2): Promise<T> => {
-    try {
-      return await fn();
-    } catch {
-      if (retries <= 0) throw new Error('Failed');
-      await new Promise(r => setTimeout(r, 800));
-      return retry(fn, retries - 1);
-    }
-  };
-  
-  const post = async (url: string, body: any) => {
-    const data = await fetchWrapper<any>(`/${url}`, {
-      method: 'POST',
-      body,
-    });
-  
-    if (data.code !== 1) throw new Error(data.message);
-    return data.data;
+  const call = () => {
+    const scheme = Platform.OS === 'ios' ? 'telprompt:' : 'tel:';
+    Linking.openURL(`${scheme}${SUPPORT_NUMBER}`).catch(() => {});
   };
 
-
-  const loadPatientData = async () => {
-    if (!patient) return;
-    try {
-      const docs = await getPatient();
-      // setDocuments(docs);
-    } catch (error) {
-      console.error('Error loading documents:', error);
-      Alert.alert('Error', 'Failed to load documents');
-    }
-  };
-
-  const appVersion =
-  Constants.expoConfig?.version ?? "N/A";
-
-  const [activeFAQ, setActiveFAQ] = useState<any>(null);
-  
-
-  const handleLogout = async () => {
-    // console.log('22');
-    // await logout();
-    // router.replace('/login');
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/login');
-          },
-        },
-      ],
-      { cancelable: true }
+  const whatsapp = () => {
+    Linking.openURL(`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}`).catch(
+      () => {}
     );
   };
 
-  const MenuItem = ({
-    icon: Icon,
-    title,
-    subtitle,
-    onPress,
-    showChevron = true,
-  }: {
-    icon: any;
-    title: string;
-    subtitle?: string;
-    onPress?: () => void;
-    showChevron?: boolean;
-  }) => (
-    <TouchableOpacity
-      style={styles.menuItem}
-      onPress={onPress}
-      activeOpacity={0.7}
-      disabled={!onPress}
-    >
-      <View style={styles.menuIconContainer}>
-        <Icon size={20} color={COLORS.primary} />
-      </View>
-      <View style={styles.menuContent}>
-        <Text style={styles.menuTitle}>{title}</Text>
-        {subtitle && <Text style={styles.menuSubtitle}>{subtitle}</Text>}
-      </View>
-      {showChevron && <ChevronRight size={20} color={COLORS.gray} />}
-    </TouchableOpacity>
-  );
-
-  if (activeFAQ) {
-    return <FAQView data={activeFAQ} onClose={() => setActiveFAQ(null)} />;
-  } 
+  const confirmLogout = () => {
+    Alert.alert(t('ui.common.logout'), t('ui.profile.logoutConfirm'), [
+      { text: t('ui.common.cancel'), style: 'cancel' },
+      {
+        text: t('ui.common.logout'),
+        style: 'destructive',
+        onPress: () => void logout(),
+      },
+    ]);
+  };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <LinearGradient
-            colors={[COLORS.primary, COLORS.secondary, COLORS.accent1]}
-            style={StyleSheet.absoluteFillObject}
-          />
-        <Image source={{ uri: LOGO_URL }} style={styles.logoImg} resizeMode="contain" />
-        <View style={styles.avatarContainer}>
-          <User size={22} color={COLORS.white} />
-        </View>
-        <Text style={styles.patientName}>{patient?.patient_name}</Text>
-        <Text style={styles.patientId}>Hospital ID: {patient?.patient_id}</Text>
-      </View>
-
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={false}
-      >
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account Information</Text>
-          <View style={styles.card}>
-            <MenuItem
-              icon={User}
-              onPress={() => router.replace('/(tabs)')}
-              title="Personal Details"
-              subtitle="View your personal information"
-            />
-            {/* <MenuItem
-              icon={Phone}
-              onPress={() => Linking.openURL(`tel:${patient?.otherData?.oncare_number}`)}
-              title="Oncare Support Number"
-              subtitle={patient?.otherData?.oncare_number || ''}
-              showChevron={false}
-            /> */}
-          </View>
-        </View>
-
-        <View style={[styles.section, { display: "none"}]}>
-          <Text style={styles.sectionTitle}>Settings</Text>
-          <View style={styles.card}>
-            <MenuItem
-              icon={Bell}
-              title="Notifications"
-              subtitle="Manage notification preferences"
-            />
-            <MenuItem
-              icon={Shield}
-              title="Privacy & Security"
-              subtitle="Manage your privacy settings"
-            />
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Support</Text>
-          <View style={styles.card}>
-            <MenuItem
-              icon={Phone}
-              onPress={() => {
-                const num = patient?.otherData?.oncare_number || '';
-                const formatted = num.startsWith('+') ? num : `+91${num}`;
-                Linking.openURL(`tel:${formatted}`);
-              }}
-              title="Oncare Support Number"
-              subtitle={patient?.otherData?.oncare_number || ''}
-              showChevron={false}
-            />
-            {faqTabs.map(tab => (
-              <MenuItem
-                key={tab.key}
-                icon={HelpCircle}
-                title={tab.title}
-                subtitle={tab.subtitle}
-                onPress={() => setActiveFAQ(faqTabs[0].page)}
-              />
-            ))}
-
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={handleLogout}
-            activeOpacity={0.7}
+    <View style={styles.root}>
+      <Screen
+        withNav
+        contentStyle={styles.content}
+        bleed={
+          <LinearGradient
+            colors={[...GRADIENT.header]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.header, { paddingTop: insets.top + SPACE.sm }]}
           >
-            <LogOut size={20} color={COLORS.error} />
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
-        </View>
+            <LinearGradient
+              colors={[...GRADIENT.glow]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={styles.glow}
+              pointerEvents="none"
+            />
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Version {appVersion}</Text>
-        </View>
-      </ScrollView>
+            <View style={styles.headerTop}>
+              <Txt variant="title" color={TEXT.onDark}>
+                {t('ui.profile.title')}
+              </Txt>
+              <SosPill />
+            </View>
+
+            <View style={styles.identity}>
+              <View style={styles.avatar}>
+                <Txt variant="titleLg" color={TEXT.onDark} script="latin">
+                  {initials(name)}
+                </Txt>
+              </View>
+              <Txt variant="titleLg" color={TEXT.onDark} center numberOfLines={1}>
+                {name}
+              </Txt>
+              <Txt variant="helperSm" color={TEXT.onDarkMuted} center script="latin">
+                {[
+                  patient?.patient_id ? `UID ${patient.patient_id}` : null,
+                  patient?.gender,
+                  patient?.age_yrs,
+                  patient?.phone_number ? `+91 ${patient.phone_number}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Txt>
+            </View>
+          </LinearGradient>
+        }
+      >
+        <Group title={t('ui.profile.account')}>
+          <Row
+            Icon={UserRound}
+            title={t('ui.profile.personalDetails')}
+            hint={t('ui.profile.personalDetailsHint')}
+            onPress={() => router.push('/profile/personal')}
+          />
+          <Row
+            Icon={Users}
+            title={t('ui.profile.familyMembers')}
+            hint={t('ui.profile.comingSoon')}
+            disabled
+          />
+          <Row
+            Icon={ShieldCheck}
+            title={t('ui.profile.insuranceTpa')}
+            hint={t('ui.profile.comingSoon')}
+            disabled
+          />
+        </Group>
+
+        <Group title={t('ui.profile.preferences')}>
+          <Row
+            Icon={MapPin}
+            title={t('ui.profile.preferredCentre')}
+            hint={t('ui.profile.comingSoon')}
+            disabled
+          />
+          <Row
+            Icon={Globe}
+            title={t('ui.language.title')}
+            hint={t('ui.language.subtitle')}
+            onPress={() => setLanguageOpen((v) => !v)}
+            expanded={languageOpen}
+          />
+          {languageOpen ? (
+            <View style={styles.languageBlock}>
+              <LanguageRows />
+            </View>
+          ) : null}
+          <Row
+            Icon={Bell}
+            title={t('ui.profile.notifications')}
+            hint={t('ui.profile.notificationsHint')}
+            onPress={() => router.push('/notifications')}
+          />
+        </Group>
+
+        <Group title={t('ui.profile.help')}>
+          <Row
+            Icon={PhoneCall}
+            title={t('ui.profile.callSupport')}
+            hint={SUPPORT_NUMBER_DISPLAY}
+            hintLatin
+            onPress={call}
+          />
+          <Row
+            Icon={MessageCircle}
+            title={t('ui.profile.chatWhatsapp')}
+            onPress={whatsapp}
+          />
+          <Row
+            Icon={CircleHelp}
+            title={t('ui.profile.faqs')}
+            onPress={() => router.push('/profile/faq')}
+          />
+        </Group>
+
+        <Pressable
+          onPress={confirmLogout}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.logout, pressed && styles.pressed]}
+        >
+          <LogOut size={16} color={PALETTE.sosRed} strokeWidth={2.3} />
+          <Txt variant="button" color={PALETTE.sosRed}>
+            {t('ui.common.logout')}
+          </Txt>
+        </Pressable>
+
+        <Txt variant="helperSm" color={TEXT.muted} center style={styles.version}>
+          {t('ui.profile.version', { version })}
+        </Txt>
+      </Screen>
     </View>
   );
 }
 
+function Group({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={styles.group}>
+      <Txt variant="helper" color={TEXT.muted} style={styles.groupTitle}>
+        {title}
+      </Txt>
+      <Card tone="plain" padded={false} style={styles.groupCard}>
+        {children}
+      </Card>
+    </View>
+  );
+}
+
+function Row({
+  Icon,
+  title,
+  hint,
+  hintLatin,
+  onPress,
+  disabled,
+  expanded,
+}: {
+  Icon: typeof UserRound;
+  title: string;
+  hint?: string;
+  hintLatin?: boolean;
+  onPress?: () => void;
+  disabled?: boolean;
+  expanded?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={disabled ? undefined : onPress}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: !!disabled, expanded }}
+      style={({ pressed }) => [
+        styles.row,
+        disabled && styles.rowOff,
+        pressed && !disabled && styles.pressed,
+      ]}
+    >
+      <View style={styles.rowIcon}>
+        <Icon size={16} color={PALETTE.midnight} strokeWidth={2.1} />
+      </View>
+      <View style={styles.rowMeta}>
+        <Txt variant="bodyMedium" numberOfLines={1}>
+          {title}
+        </Txt>
+        {hint ? (
+          <Txt
+            variant="helperSm"
+            color={TEXT.muted}
+            script={hintLatin ? 'latin' : 'auto'}
+            numberOfLines={1}
+          >
+            {hint}
+          </Txt>
+        ) : null}
+      </View>
+      {!disabled ? (
+        <ChevronRight size={16} color={TEXT.muted} strokeWidth={2.2} />
+      ) : null}
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f4f5f9',
-  },
+  root: { flex: 1, backgroundColor: SURFACE.screen },
+  content: { paddingTop: SPACE.lg },
   header: {
-    backgroundColor: COLORS.primary,
-    paddingTop: 60,
-    paddingBottom: 18,
-    alignItems: 'center',
-  },
-  logoImg: {
-    width: 120,
-    height: 36,
-    marginBottom: 12,
-  },
-  avatarContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  patientName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.white,
-    letterSpacing: -0.2,
-  },
-  patientId: {
-    fontSize: 11,
-    color: COLORS.white,
-    opacity: 0.55,
-    fontWeight: '600',
-    marginTop: 3,
-    letterSpacing: 0.2,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  section: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: COLORS.gray,
-    marginBottom: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  card: {
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
+    borderBottomLeftRadius: RADIUS.header,
+    borderBottomRightRadius: RADIUS.header,
+    paddingHorizontal: SPACE.gutter,
+    paddingBottom: SPACE.xl,
     overflow: 'hidden',
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 20,
-    elevation: 4,
+  },
+  glow: {
+    position: 'absolute',
+    top: -70,
+    right: -50,
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    opacity: 0.75,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 34,
+  },
+  identity: {
+    alignItems: 'center',
+    gap: 2,
+    marginTop: SPACE.md,
+  },
+  avatar: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: PALETTE.purple,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.28)',
+    marginBottom: SPACE.sm,
+  },
+  group: { marginBottom: SPACE.lg },
+  groupTitle: { marginBottom: SPACE.xs },
+  groupCard: { paddingHorizontal: SPACE.md },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACE.sm,
+    minHeight: TOUCH_MIN + 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: SURFACE.divider,
+  },
+  rowOff: { opacity: 0.5 },
+  rowIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: SURFACE.tint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowMeta: { flex: 1 },
+  languageBlock: {
+    paddingBottom: SPACE.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: SURFACE.divider,
+  },
+  logout: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACE.xs,
+    minHeight: TOUCH_MIN + 6,
+    borderRadius: RADIUS.card,
     borderWidth: 1,
-    borderColor: 'rgba(238,240,248,0.9)',
+    borderColor: '#F7CFD6',
+    backgroundColor: '#FFF5F6',
   },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f1f6',
-  },
-  menuIconContainer: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: COLORS.primary + '10',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  menuContent: {
-    flex: 1,
-  },
-  menuTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.primary,
-  },
-  menuSubtitle: {
-    fontSize: 11,
-    color: COLORS.gray,
-    marginTop: 2,
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    borderRadius: 14,
-    gap: 8,
-    borderWidth: 1.5,
-    borderColor: COLORS.error + '30',
-  },
-  logoutText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.error,
-  },
-  footer: {
-    alignItems: 'center',
-    paddingVertical: 24,
-  },
-  footerText: {
-    fontSize: 11,
-    color: COLORS.gray,
-  },
+  version: { marginTop: SPACE.md, marginBottom: SPACE.lg },
+  pressed: { opacity: 0.8 },
 });

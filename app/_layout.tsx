@@ -3,8 +3,12 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { View, Image, StyleSheet } from 'react-native';
+import { useFonts } from 'expo-font';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { LanguageProvider } from '../contexts/LanguageContext';
+import { SosProvider } from '../contexts/SosContext';
 import Toast from 'react-native-toast-message';
 
 import { initializeNotifications, initializeFCMAndSendToken, cleanupListeners } from '../services/notifications';
@@ -106,17 +110,18 @@ function RootLayoutNav() {
 
         // Handle routing based on auth state
         const inAuthGroup = segments[0] === '(tabs)';
+        // Guest mode (section 06) is reachable without a session, so it joins
+        // login as a route a signed-out patient is allowed to sit on. Without
+        // this, "Explore without login" bounces straight back to login.
+        const publicRoute = segments[0] === 'login' || segments[0] === 'guest';
 
         if (!isAuthenticated || !patient) {
-          if (inAuthGroup || segments[0] !== 'login') {
+          if (inAuthGroup || !publicRoute) {
             router.replace('/login');
           }
         } else if (isAuthenticated && patient && !inAuthGroup) {
           router.replace('/(tabs)');
         }
-
-        // Artificially delay for two seconds to simulate loading things
-        await new Promise(resolve => setTimeout(resolve, 2000));
       } catch (e) {
         console.warn(e);
       } finally {
@@ -182,6 +187,7 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
       <Stack.Screen name="login" options={{ animation: 'fade' }} />
+      <Stack.Screen name="guest" options={{ animation: 'fade' }} />
       <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
       <Stack.Screen name="+not-found" />
     </Stack>
@@ -191,11 +197,33 @@ function RootLayoutNav() {
 export default function RootLayout() {
   useFrameworkReady();
 
+  // The expo-font config plugin embeds these natively, so in a built app this
+  // resolves on the first tick and there is no font flash. useFonts is still
+  // needed for web and Expo Go, where there is nothing to embed into.
+  const [fontsLoaded, fontError] = useFonts({
+    'Montserrat-Regular': require('../assets/fonts/Montserrat-Regular.ttf'),
+    'Montserrat-Medium': require('../assets/fonts/Montserrat-Medium.ttf'),
+    'Montserrat-SemiBold': require('../assets/fonts/Montserrat-SemiBold.ttf'),
+    'NotoSansDevanagari-Regular': require('../assets/fonts/NotoSansDevanagari-Regular.ttf'),
+    'NotoSansDevanagari-Medium': require('../assets/fonts/NotoSansDevanagari-Medium.ttf'),
+    'NotoSansDevanagari-SemiBold': require('../assets/fonts/NotoSansDevanagari-SemiBold.ttf'),
+  });
+
+  // A font that fails to load must not block the app — the patient still needs
+  // to reach their reports. Text falls back to the system face instead.
+  if (!fontsLoaded && !fontError) return null;
+
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-      <StatusBar style="auto" />
-      <Toast />
-    </AuthProvider>
+    <SafeAreaProvider>
+      <LanguageProvider>
+        <SosProvider>
+          <AuthProvider>
+            <RootLayoutNav />
+            <StatusBar style="light" />
+            <Toast />
+          </AuthProvider>
+        </SosProvider>
+      </LanguageProvider>
+    </SafeAreaProvider>
   );
 }
