@@ -223,7 +223,10 @@ const styles = StyleSheet.create({
   cancel: {
     marginTop: SPACE.md,
     alignSelf: 'center',
-    paddingHorizontal: SPACE.xxl,
+    // minWidth rather than paddingHorizontal: this style now lands on the
+    // button's outer Pressable, where padding would pad the tap area and leave
+    // the visible pill hugging the label.
+    minWidth: 190,
   },
   pressed: {
     opacity: 0.85,

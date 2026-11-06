@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
+  Pressable,
   TextInput,
   StyleSheet,
   type TextInputProps,
@@ -14,7 +15,6 @@ import {
   SPACE,
   SURFACE,
   TEXT,
-  TOUCH_MIN,
   TYPE,
 } from '@/constants/theme';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -47,9 +47,13 @@ export function Field({
   containerStyle,
   multiline,
   style,
+  onFocus,
+  onBlur,
   ...rest
 }: Props) {
   const { devanagari } = useLanguage();
+  const inputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
+  const [focused, setFocused] = useState(false);
 
   return (
     <View style={containerStyle}>
@@ -66,10 +70,21 @@ export function Field({
         </View>
       ) : null}
 
-      <View
+      {/*
+        The whole box focuses the input, not just the text itself.
+
+        A TextInput only occupies the width of its own content area, so tapping
+        the padding, the icon or the "+91" prefix did nothing while still
+        raising the keyboard via the parent — which read as "the keyboard came
+        up but the field is not focused".
+      */}
+      <Pressable
+        onPress={() => inputRef.current?.focus()}
+        accessible={false}
         style={[
           styles.box,
           multiline && styles.boxMultiline,
+          focused && styles.boxFocused,
           !!error && styles.boxError,
         ]}
       >
@@ -84,8 +99,19 @@ export function Field({
         ) : null}
         <TextInput
           {...rest}
+          ref={inputRef}
           multiline={multiline}
           placeholderTextColor={TEXT.muted}
+          selectionColor={PALETTE.purple}
+          cursorColor={PALETTE.purple}
+          onFocus={(e) => {
+            setFocused(true);
+            onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setFocused(false);
+            onBlur?.(e);
+          }}
           style={[
             styles.input,
             {
@@ -97,7 +123,7 @@ export function Field({
             style,
           ]}
         />
-      </View>
+      </Pressable>
 
       {error ? (
         <Txt variant="helperSm" color={PALETTE.sosRed} style={styles.error}>
@@ -118,18 +144,25 @@ const styles = StyleSheet.create({
   box: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACE.xs,
-    minHeight: TOUCH_MIN,
+    gap: SPACE.sm,
+    // Taller than the 44 minimum: these hold phone numbers and addresses and
+    // the design's fields are generous.
+    minHeight: 52,
     borderRadius: RADIUS.input,
-    borderWidth: 1,
+    borderWidth: 1.4,
     borderColor: SURFACE.border,
     backgroundColor: SURFACE.card,
-    paddingHorizontal: SPACE.sm,
+    paddingHorizontal: SPACE.md,
   },
   boxMultiline: {
     alignItems: 'flex-start',
-    minHeight: 76,
+    minHeight: 86,
     paddingVertical: SPACE.sm,
+  },
+  /** Violet ring while editing, matching the selected-state colour. */
+  boxFocused: {
+    borderColor: PALETTE.purple,
+    backgroundColor: SURFACE.card,
   },
   boxError: {
     borderColor: PALETTE.sosRed,

@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
-import { MapPin, Navigation, Search } from 'lucide-react-native';
+import { ChevronRight, MapPin, Search } from 'lucide-react-native';
 import {
-  Btn,
   Card,
   Chip,
   EmptyState,
@@ -11,7 +10,11 @@ import {
   Txt,
 } from '@/components/ui';
 import { useT } from '@/contexts/LanguageContext';
-import { groupByCity, type Location } from '@/services/booking';
+import {
+  groupByCity,
+  locationSearchText,
+  type Location,
+} from '@/services/booking';
 import {
   PALETTE,
   SPACE,
@@ -23,31 +26,24 @@ import {
 /**
  * C1 — choose a centre.
  *
- * City tabs exist because the old list mixed Delhi and Bengaluru with no filter
- * (section 07). The city is derived from the location name — see
- * services/booking.ts — since the Docpulse payload has no city field.
+ * Tapping a centre advances straight to the doctor step; there is no Continue
+ * button, because picking one of a list of nine is unambiguous and a second tap
+ * to confirm it only lengthens the flow section 07 already called too long.
  *
- * "Use my location" is offered but distance only appears once a centre carries
- * coordinates. The Docpulse location payload does not, so the button is wired
- * to the handler the parent supplies and the distance line stays absent rather
- * than showing a made-up number.
+ * City tabs exist because the old list mixed Delhi and Bengaluru with no
+ * filter.
  */
 export function CentreStep({
   locations,
   loading,
   selected,
   onSelect,
-  onContinue,
-  onUseLocation,
-  locating,
 }: {
   locations: Location[];
   loading: boolean;
   selected: Location | null;
+  /** Advances to the doctor step itself — there is no Continue button. */
   onSelect: (l: Location) => void;
-  onContinue: () => void;
-  onUseLocation: () => void;
-  locating?: boolean;
 }) {
   const t = useT();
   const [city, setCity] = useState<string | null>(null);
@@ -61,9 +57,8 @@ export function CentreStep({
     const items = group?.items ?? [];
     const q = query.trim().toLowerCase();
     if (!q) return items;
-    return items.filter((l) =>
-      `${l.name ?? ''} ${l.address ?? ''}`.toLowerCase().includes(q)
-    );
+    // Name plus area plus city, matching what the previous build searched.
+    return items.filter((l) => locationSearchText(l).includes(q));
   }, [groups, activeCity, query]);
 
   return (
@@ -95,18 +90,6 @@ export function CentreStep({
         containerStyle={styles.search}
       />
 
-      <Pressable
-        onPress={onUseLocation}
-        accessibilityRole="button"
-        hitSlop={8}
-        style={styles.locateRow}
-      >
-        <Navigation size={13} color={PALETTE.purple} strokeWidth={2.4} />
-        <Txt variant="helper" color={PALETTE.purple}>
-          {locating ? t('ui.common.loading') : t('ui.booking.useMyLocation')}
-        </Txt>
-      </Pressable>
-
       {loading ? (
         <SkeletonList count={5} lines={1} />
       ) : shown.length === 0 ? (
@@ -115,14 +98,13 @@ export function CentreStep({
           title={t('ui.records.empty')}
         />
       ) : (
-        shown.map((l, i) => {
+        shown.map((l) => {
           const active = selected?.id === l.id;
-          const nearest = i === 0 && !query && l.distanceKm !== undefined;
           return (
             <Pressable
               key={l.id}
               onPress={() => onSelect(l)}
-              accessibilityRole="radio"
+              accessibilityRole="button"
               accessibilityState={{ selected: active }}
               style={({ pressed }) => [pressed && styles.pressed]}
             >
@@ -132,45 +114,29 @@ export function CentreStep({
                 </View>
 
                 <View style={styles.meta}>
-                  <Txt variant="bodyMedium" script="latin" numberOfLines={1}>
-                    {String(l.name)}
+                  {/* `label` is "name, area". Docpulse gives every centre the
+                      same `name`, so area is what tells them apart. */}
+                  <Txt variant="bodyMedium" script="latin" numberOfLines={2}>
+                    {l.label}
                   </Txt>
-                  <Txt
-                    variant="helperSm"
-                    color={TEXT.muted}
-                    script="latin"
-                    numberOfLines={1}
-                  >
-                    {[
-                      l.address ? String(l.address) : null,
-                      nearest ? t('ui.home.nearest') : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </Txt>
+                  {l.city && l.city !== l.area ? (
+                    <Txt
+                      variant="helperSm"
+                      color={TEXT.muted}
+                      script="latin"
+                      numberOfLines={1}
+                    >
+                      {String(l.city)}
+                    </Txt>
+                  ) : null}
                 </View>
 
-                {l.distanceKm !== undefined ? (
-                  <Txt variant="helperSm" color={PALETTE.purple} script="latin">
-                    {Number(l.distanceKm).toFixed(1)} km
-                  </Txt>
-                ) : null}
-
-                <View style={[styles.radio, active && styles.radioOn]}>
-                  {active ? <View style={styles.radioDot} /> : null}
-                </View>
+                <ChevronRight size={16} color={TEXT.muted} strokeWidth={2.2} />
               </Card>
             </Pressable>
           );
         })
       )}
-
-      <Btn
-        label={t('ui.common.continue')}
-        onPress={onContinue}
-        disabled={!selected}
-        style={styles.continue}
-      />
     </View>
   );
 }
@@ -183,13 +149,7 @@ const styles = StyleSheet.create({
     gap: SPACE.xs,
     marginBottom: SPACE.sm,
   },
-  search: { marginBottom: SPACE.xs },
-  locateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACE.xs,
-    minHeight: TOUCH_MIN,
-  },
+  search: { marginBottom: SPACE.md },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -206,22 +166,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   meta: { flex: 1 },
-  radio: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1.5,
-    borderColor: SURFACE.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioOn: { borderColor: PALETTE.purple },
-  radioDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: PALETTE.purple,
-  },
-  continue: { marginTop: SPACE.lg, marginBottom: SPACE.lg },
   pressed: { opacity: 0.9 },
 });
+
+const _touch = TOUCH_MIN;

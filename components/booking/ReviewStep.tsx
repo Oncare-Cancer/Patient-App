@@ -2,15 +2,12 @@ import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { Info } from 'lucide-react-native';
 import {
-  AttachSheet,
   Btn,
   Card,
   Field,
   Txt,
-  UploadField,
 } from '@/components/ui';
 import { useT } from '@/contexts/LanguageContext';
-import type { useAttachments } from '@/hooks/useAttachments';
 import {
   PALETTE,
   SPACE,
@@ -38,8 +35,9 @@ function initials(name: string): string {
  * invalidates everything after it. Sending the patient back through the chain is
  * the only version that cannot produce an inconsistent booking.
  *
- * Reports attached here also land in Records ("Saved to your Records too" on the
- * design), which the parent does by uploading with purpose `report`.
+ * No reports are collected at this step. The previous booking flow did not ask
+ * for them either; the patient is asked to bring them to the visit, and uploads
+ * happen from Records.
  */
 export function ReviewStep({
   doctorName,
@@ -50,7 +48,6 @@ export function ReviewStep({
   patientLabel,
   reason,
   onReason,
-  attach,
   onEdit,
   onConfirm,
   submitting,
@@ -63,7 +60,6 @@ export function ReviewStep({
   patientLabel: string;
   reason: string;
   onReason: (v: string) => void;
-  attach: ReturnType<typeof useAttachments>;
   onEdit: () => void;
   onConfirm: () => void;
   submitting: boolean;
@@ -137,16 +133,9 @@ export function ReviewStep({
         containerStyle={styles.field}
       />
 
-      <Txt variant="helper" color={TEXT.secondary} style={styles.label}>
-        {t('ui.booking.attachReports')} ({t('ui.common.optional')})
-      </Txt>
-      <UploadField
-        label={t('ui.booking.addReports')}
-        hint={t('ui.booking.savedToRecords')}
-        files={attach.files}
-        onPick={attach.openSheet}
-        onRemove={attach.remove}
-      />
+      {/* No report upload here. The previous booking flow never collected
+          reports at this point and the patient is told to bring them to the
+          visit instead (the card below). Reports are uploaded from Records. */}
 
       <Card tone="info" style={styles.bringCard}>
         <View style={styles.bringTop}>
@@ -171,14 +160,6 @@ export function ReviewStep({
       <Txt variant="helperSm" color={TEXT.muted} center style={styles.reminder}>
         {t('ui.booking.reminderNote')}
       </Txt>
-
-      <AttachSheet
-        visible={attach.sheetOpen}
-        onClose={attach.closeSheet}
-        onCamera={attach.fromCamera}
-        onGallery={attach.fromGallery}
-        onDocument={attach.fromDocument}
-      />
     </View>
   );
 }

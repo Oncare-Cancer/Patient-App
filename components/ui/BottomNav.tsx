@@ -14,10 +14,15 @@ import {
 } from '@/constants/theme';
 import type { StringKey } from '@/constants/i18n';
 
-type TabKey = 'home' | 'activity' | 'records' | 'profile';
+/**
+ * `book` is in the union even though it is not in TABS: the "+" is a route like
+ * any other, so it needs an active state, but it renders as the raised circle
+ * rather than a tab.
+ */
+type TabKey = 'home' | 'activity' | 'book' | 'records' | 'profile';
 
 const TABS: {
-  key: TabKey;
+  key: Exclude<TabKey, 'book'>;
   labelKey: StringKey;
   Icon: typeof Home;
 }[] = [
@@ -50,6 +55,7 @@ export function BottomNav({
 
   const left = TABS.slice(0, 2);
   const right = TABS.slice(2);
+  const bookActive = active === 'book';
 
   const renderTab = ({ key, labelKey, Icon }: (typeof TABS)[number]) => {
     const isActive = key === active;
@@ -94,15 +100,27 @@ export function BottomNav({
         <View style={styles.bookSlot}>
           <Pressable
             onPress={onBook}
-            accessibilityRole="button"
+            accessibilityRole="tab"
             accessibilityLabel={t('ui.nav.book')}
-            style={({ pressed }) => [styles.book, pressed && styles.pressed]}
+            accessibilityState={{ selected: bookActive }}
+            style={({ pressed }) => [
+              styles.book,
+              bookActive && styles.bookActive,
+              pressed && styles.pressed,
+            ]}
           >
-            <Plus size={22} color={PALETTE.midnight} strokeWidth={2.8} />
+            <Plus
+              size={22}
+              color={bookActive ? PALETTE.pink : PALETTE.midnight}
+              strokeWidth={2.8}
+            />
           </Pressable>
           <Txt variant="helperSm" color={PALETTE.white} style={styles.bookLabel}>
             {t('ui.nav.book')}
           </Txt>
+          {/* Same pink dot the tabs use, so "you are on Book" is shown the way
+              "you are on Home" is. */}
+          <View style={[styles.dot, bookActive && styles.dotActive]} />
         </View>
 
         {right.map(renderTab)}
@@ -157,7 +175,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: -NAV.bookOverhang,
+    borderWidth: 2,
+    // Transparent rather than absent so turning the ring on does not resize
+    // the circle and shift the "+" by 2px.
+    borderColor: 'transparent',
     ...SHADOW.button,
+  },
+  /** Pink ring + pink "+" while on the Book route. */
+  bookActive: {
+    borderColor: PALETTE.pink,
   },
   bookLabel: {
     marginTop: 2,

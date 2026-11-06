@@ -143,7 +143,7 @@ export default function GuestDoctors() {
                     script="latin"
                     numberOfLines={1}
                   >
-                    {[d.speciality, d.experienceLabel].filter(Boolean).join(' · ')}
+                    {[d.speciality, d.experience].filter(Boolean).join(' · ')}
                   </Txt>
                 </View>
               </View>

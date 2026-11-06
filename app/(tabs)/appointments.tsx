@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Pressable,
@@ -7,6 +7,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import {
   CalendarDays,
   MapPin,
@@ -99,9 +100,20 @@ export default function Activity() {
     setRefreshing(false);
   }, []);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  /**
+   * Reloads on focus and resets the filter to Upcoming.
+   *
+   * A patient arriving here straight after booking wants to see the thing they
+   * just booked. This screen stays mounted inside the tab stack, so a
+   * mount-only effect left both the list and the selected bucket stale — they
+   * landed on whatever tab they last used, showing pre-booking data.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      setBucket('upcoming');
+      void load();
+    }, [load])
+  );
 
   const counts = useMemo(() => {
     const c: Record<ApptBucket, number> = { upcoming: 0, past: 0, cancelled: 0 };

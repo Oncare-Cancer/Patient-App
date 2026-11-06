@@ -15,7 +15,12 @@ import {
 import { FAQView } from '@/components/FAQView';
 import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
-import { getFaqTabs, askUsEmailQuery } from '@/services/faq';
+import {
+  getFaqTabs,
+  faqPage,
+  askUsEmailQuery,
+  type FaqTab,
+} from '@/services/faq';
 import { toastError, toastSuccess } from '@/utils/toast';
 import {
   PALETTE,
@@ -36,11 +41,13 @@ export default function Faq() {
   const t = useT();
   const { patient } = useAuth();
 
-  const [tabs, setTabs] = useState<any[]>([]);
+  const [tabs, setTabs] = useState<FaqTab[]>([]);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [active, setActive] = useState<any | null>(null);
+  const [active, setActive] = useState<FaqTab | null>(null);
 
+  const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
+  const [errors, setErrors] = useState({ email: '', message: '' });
   const [sending, setSending] = useState(false);
 
   const load = useCallback(async () => {
@@ -58,16 +65,31 @@ export default function Faq() {
   }, [load]);
 
   const send = async () => {
+    if (sending) return;
+
+    const mail = email.trim();
     const text = message.trim();
-    if (text.length < 5 || sending) return;
+
+    // The backend rejects a missing or malformed email with a 400, so it is
+    // validated here rather than letting the patient hit a generic failure.
+    const next = {
+      email: !mail
+        ? t('ui.faq.emailRequired')
+        : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)
+        ? ''
+        : t('ui.faq.emailInvalid'),
+      message: text.length < 5 ? t('ui.faq.questionTooShort') : '',
+    };
+    setErrors(next);
+    if (next.email || next.message) return;
+
     setSending(true);
     try {
-      await askUsEmailQuery({
-        name: patient?.patient_name ?? 'Patient',
-        mobile: patient?.phone_number,
-        message: text,
-      });
+      // `userquery` is the backend's field name; name and mobile come from the
+      // session, so they are not sent.
+      await askUsEmailQuery({ email: mail, userquery: text });
       setMessage('');
+      setErrors({ email: '', message: '' });
       toastSuccess(t('ui.faq.querySent'), t('ui.faq.querySentBody'));
     } catch {
       toastError(t('ui.common.somethingWrong'), t('ui.common.retry'));
@@ -76,9 +98,11 @@ export default function Faq() {
     }
   };
 
-  // FAQView takes over the whole screen when a topic is open, as before.
+  // FAQView takes over the whole screen when a topic is open, as before. It
+  // reads `heading` / `groups` off what it is given, which live on the topic's
+  // inner `page` object — handing it the wrapper crashed on `groups.map`.
   if (active) {
-    return <FAQView data={active} onClose={() => setActive(null)} />;
+    return <FAQView data={faqPage(active)} onClose={() => setActive(null)} />;
   }
 
   return (
@@ -120,18 +144,37 @@ export default function Faq() {
           {t('ui.faq.stillNeedHelp')}
         </Txt>
         <Card tone="plain" style={styles.askCard}>
+          {/* Required by the backend: the reply is sent by email, so there is
+              nowhere to answer without it. */}
+          <Field
+            label={t('ui.faq.yourEmail')}
+            placeholder={t('ui.faq.emailPlaceholder')}
+            value={email}
+            onChangeText={(v) => {
+              setEmail(v);
+              if (errors.email) setErrors((e) => ({ ...e, email: '' }));
+            }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            error={errors.email}
+          />
           <Field
             label={t('ui.faq.yourQuestion')}
             placeholder={t('ui.faq.questionPlaceholder')}
             value={message}
-            onChangeText={setMessage}
+            onChangeText={(v) => {
+              setMessage(v);
+              if (errors.message) setErrors((e) => ({ ...e, message: '' }));
+            }}
             multiline
+            error={errors.message}
           />
           <Btn
             label={t('ui.common.submit')}
             onPress={send}
             loading={sending}
-            disabled={message.trim().length < 5}
+            disabled={!email.trim() || message.trim().length < 5}
             style={styles.send}
           />
           <Txt variant="helperSm" color={TEXT.muted}>

@@ -7,9 +7,16 @@ import {
   Platform,
   Keyboard,
   Pressable,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronRight, MessageCircle, ChevronLeft } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  ChevronRight,
+  MessageCircle,
+  ChevronLeft,
+  Compass,
+} from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
 import {
@@ -29,6 +36,7 @@ import {
 import { CallbackSheet } from '@/components/login/CallbackSheet';
 import { PremiumAlert } from '@/components/PremiumAlert';
 import { takePendingIntent, resumePathFor } from '@/services/pendingIntent';
+import { TERMS_URL, PRIVACY_URL } from '@/constants/links';
 import {
   PALETTE,
   RADIUS,
@@ -273,7 +281,7 @@ export default function LoginScreen() {
         >
           {step === 'identifier' ? (
             <>
-              <LoginHero step={0} />
+              <LoginHero />
               <IdentifierStep
                 method={method}
                 onMethod={(m) => {
@@ -397,28 +405,90 @@ function IdentifierStep({
         {t('ui.login.newUserNote')}
       </Txt>
 
-      {/* Divider + guest link, so "Explore without login" reads as the
-          alternative route rather than a third button in the same stack. */}
       <View style={styles.orRow}>
         <View style={styles.rule} />
-        <Pressable
-          onPress={onGuest}
-          accessibilityRole="button"
-          hitSlop={10}
-          style={styles.guestLink}
-        >
-          <Txt variant="helper" color={PALETTE.pink}>
-            {t('ui.login.exploreWithoutLogin')}
-          </Txt>
-          <ChevronRight size={14} color={PALETTE.pink} strokeWidth={2.4} />
-        </Pressable>
+        <Txt variant="helperSm" color={TEXT.muted}>
+          {t('ui.login.or')}
+        </Txt>
         <View style={styles.rule} />
       </View>
 
-      <Txt variant="helperSm" color={TEXT.muted} center style={styles.terms}>
-        {t('ui.login.terms')}
-      </Txt>
+      {/*
+        A card, not a text link.
+
+        "Explore without login" was a small pink link squeezed between two
+        rules, which read as fine print rather than the second way into the app.
+        Naming what a guest can actually do here is the difference between the
+        option being noticed and being scrolled past.
+      */}
+      <Pressable
+        onPress={onGuest}
+        accessibilityRole="button"
+        style={({ pressed }) => [pressed && styles.pressed]}
+      >
+        <Card tone="plain" style={styles.guestCard}>
+          <View style={styles.guestIcon}>
+            <Compass size={18} color={PALETTE.purple} strokeWidth={2.2} />
+          </View>
+          <View style={styles.flex}>
+            <Txt variant="bodyMedium">{t('ui.login.exploreWithoutLogin')}</Txt>
+            <Txt variant="helperSm" color={TEXT.muted}>
+              {t('ui.login.exploreSubtitle')}
+            </Txt>
+          </View>
+          <ChevronRight size={16} color={TEXT.muted} strokeWidth={2.2} />
+        </Card>
+      </Pressable>
+
+      <LegalLine />
     </View>
+  );
+}
+
+/**
+ * The consent line, with both documents as real links.
+ *
+ * Built from five i18n fragments rather than one sentence so the links are
+ * genuinely tappable `Text` nodes. Hindi needs them mid-sentence, which a
+ * prefix/suffix pair alone could not express.
+ */
+function LegalLine() {
+  const t = useT();
+
+  const open = (url: string) => {
+    Linking.openURL(url).catch(() => {});
+  };
+
+  return (
+    <Txt variant="helperSm" color={TEXT.muted} center style={styles.terms}>
+      {/*
+        The prefix carries its own newline so both links land together on the
+        second line. Left to wrap naturally, English broke in the middle of
+        "Privacy Policy" and the link looked like two separate links.
+      */}
+      {t('ui.login.termsPrefix')}
+      {'\n'}
+      <Txt
+        variant="helperSm"
+        color={PALETTE.deepBlue}
+        style={styles.link}
+        accessibilityRole="link"
+        onPress={() => open(TERMS_URL)}
+      >
+        {t('ui.login.termsLink')}
+      </Txt>
+      {t('ui.login.termsMid')}
+      <Txt
+        variant="helperSm"
+        color={PALETTE.deepBlue}
+        style={styles.link}
+        accessibilityRole="link"
+        onPress={() => open(PRIVACY_URL)}
+      >
+        {t('ui.login.privacyLink')}
+      </Txt>
+      {t('ui.login.termsSuffix')}
+    </Txt>
   );
 }
 
@@ -460,11 +530,15 @@ function OtpStep({
   onVerify: () => void;
 }) {
   const t = useT();
+  const insets = useSafeAreaInsets();
   const clock = `00:${String(secondsLeft).padStart(2, '0')}`;
   const canResend = secondsLeft === 0 && resendsLeft > 0;
 
   return (
-    <View style={styles.otpWrap}>
+    // Unlike A1 there is no navy hero to absorb the status bar here, so the
+    // inset has to be added explicitly — without it the back button sat right
+    // under the clock.
+    <View style={[styles.otpWrap, { paddingTop: insets.top + SPACE.xl }]}>
       <View style={styles.otpHeader}>
         <Pressable
           onPress={onBack}
@@ -545,28 +619,10 @@ function OtpStep({
           </Pressable>
         )}
 
-        <Txt variant="helperSm" color={TEXT.muted}>
-          ·
-        </Txt>
-
-        {/* Section 04 asks for an SMS fallback. The backend currently only sends
-            on WhatsApp, so this re-requests on the same endpoint; wiring a true
-            `channel: 'sms'` needs a backend change, tracked with the open items
-            rather than faked here. */}
-        <Pressable
-          onPress={onResend}
-          disabled={!canResend}
-          hitSlop={8}
-          accessibilityRole="button"
-        >
-          <Txt
-            variant="helperSm"
-            color={canResend ? PALETTE.deepBlue : TEXT.muted}
-            style={canResend ? styles.link : undefined}
-          >
-            {t('ui.login.getSmsInstead')}
-          </Txt>
-        </Pressable>
+        {/* "Get SMS instead" was removed: the backend only sends on WhatsApp,
+            so the link re-requested the same endpoint and no SMS was ever
+            sent. Offering a channel that does not exist is worse than not
+            offering it. */}
       </View>
 
       <Btn
@@ -610,7 +666,9 @@ const styles = StyleSheet.create({
    * loose column with empty space at the bottom.
    */
   body: {
-    paddingHorizontal: SPACE.lg,
+    // SPACE.gutter, not SPACE.lg: this is the screen gutter every other screen
+    // uses via <Screen>, so login matched nothing else at 18.
+    paddingHorizontal: SPACE.gutter,
     paddingTop: SPACE.xl,
   },
   bodyTitle: {
@@ -643,19 +701,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACE.sm,
-    marginTop: SPACE.xl,
+    // Equal air above and below, so the divider reads as separating the two
+    // routes rather than being attached to the note above it.
+    marginTop: SPACE.lg,
+    marginBottom: SPACE.lg,
   },
   rule: {
     flex: 1,
     height: 1,
     backgroundColor: SURFACE.divider,
   },
-  guestLink: {
+  guestCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: SPACE.sm,
+    minHeight: TOUCH_MIN + 10,
+  },
+  guestIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: SURFACE.tint,
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
-    minHeight: TOUCH_MIN,
+  },
+  pressed: {
+    opacity: 0.9,
   },
   terms: {
     marginTop: SPACE.lg,
@@ -663,8 +734,7 @@ const styles = StyleSheet.create({
   },
 
   otpWrap: {
-    paddingHorizontal: SPACE.lg,
-    paddingTop: SPACE.xxl,
+    paddingHorizontal: SPACE.gutter,
     gap: SPACE.md,
   },
   otpHeader: {

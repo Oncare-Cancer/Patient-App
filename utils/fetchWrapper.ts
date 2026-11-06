@@ -21,11 +21,21 @@ interface FetchOptions {
   skipAuth?: boolean;
 }
 
+/**
+ * Why the handler is told whether a token was sent: a 401 means two different
+ * things. With a token it is a real session expiry and the patient must log in
+ * again. Without one it is a guest reaching a locked endpoint, and telling them
+ * their session expired is wrong — they never had one.
+ */
+export type UnauthorizedInfo = { hadToken: boolean };
+
 // Logout callback - set by AuthContext to avoid circular dependency
-let onUnauthorized: (() => void) | null = null;
+let onUnauthorized: ((info: UnauthorizedInfo) => void) | null = null;
 let onUpgradeRequired: ((message: string) => void) | null = null;
 
-export function setUnauthorizedHandler(handler: () => void) {
+export function setUnauthorizedHandler(
+  handler: (info: UnauthorizedInfo) => void
+) {
   onUnauthorized = handler;
 }
 
@@ -80,9 +90,14 @@ export async function fetchWrapper<T = any>(
 
   // Handle 401 Unauthorized - trigger logout
   if (response.status === 401) {
-    console.warn('401 Unauthorized - triggering logout');
+    const hadToken = !!authToken;
+    console.warn(
+      hadToken
+        ? '401 Unauthorized - triggering logout'
+        : '401 Unauthorized - no token (guest hitting a locked endpoint)'
+    );
     if (onUnauthorized) {
-      onUnauthorized();
+      onUnauthorized({ hadToken });
       return new Promise(() => {}); // Halt execution to prevent crash during navigation
     }
     throw new Error('Unauthorized');

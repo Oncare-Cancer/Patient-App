@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Linking,
   Platform,
-  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,15 +16,12 @@ import {
   CircleHelp,
   Globe,
   LogOut,
-  MapPin,
-  MessageCircle,
   PhoneCall,
-  ShieldCheck,
   UserRound,
-  Users,
 } from 'lucide-react-native';
 import {
   Card,
+  ConfirmDialog,
   LanguageRows,
   Screen,
   SosPill,
@@ -33,11 +29,7 @@ import {
 } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
-import {
-  SUPPORT_NUMBER,
-  SUPPORT_NUMBER_DISPLAY,
-  WHATSAPP_NUMBER,
-} from '@/constants/contact';
+import { SUPPORT_NUMBER, SUPPORT_NUMBER_DISPLAY } from '@/constants/contact';
 import {
   GRADIENT,
   PALETTE,
@@ -54,13 +46,10 @@ import {
  * Three groups, as the design has them: Account, Preferences, Help. Logout in
  * red at the bottom with the app version under it.
  *
- * Rows whose backend does not exist yet — Family members, Insurance & TPA,
- * Notifications — are present but marked, rather than being hidden or wired to
- * a dead screen. A patient tapping a row and landing nowhere is worse than a
- * row that says it is coming.
- *
- * The FAQ and help-query path is unchanged: it still calls `getFaqQuestions` and
- * `askUsEmailQuery`, only restyled.
+ * Family members, Insurance & TPA and Chat on WhatsApp are deliberately absent.
+ * They were previously rendered as greyed-out "coming soon" rows, but a list of
+ * things that do not work reads as an unfinished app; they return when there is
+ * something behind them.
  */
 
 function initials(name: string): string {
@@ -76,6 +65,8 @@ export default function Profile() {
   const insets = useSafeAreaInsets();
   const { patient, logout } = useAuth();
   const [languageOpen, setLanguageOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const name = patient?.patient_name ?? '';
   const version = Constants.expoConfig?.version ?? '1.0.0';
@@ -85,21 +76,16 @@ export default function Profile() {
     Linking.openURL(`${scheme}${SUPPORT_NUMBER}`).catch(() => {});
   };
 
-  const whatsapp = () => {
-    Linking.openURL(`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}`).catch(
-      () => {}
-    );
-  };
-
-  const confirmLogout = () => {
-    Alert.alert(t('ui.common.logout'), t('ui.profile.logoutConfirm'), [
-      { text: t('ui.common.cancel'), style: 'cancel' },
-      {
-        text: t('ui.common.logout'),
-        style: 'destructive',
-        onPress: () => void logout(),
-      },
-    ]);
+  const doLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      // The root layout redirects on the auth change, so the dialog is closed
+      // here only so it is not still open if logout fails.
+      setLoggingOut(false);
+      setLogoutOpen(false);
+    }
   };
 
   return (
@@ -159,27 +145,9 @@ export default function Profile() {
             hint={t('ui.profile.personalDetailsHint')}
             onPress={() => router.push('/profile/personal')}
           />
-          <Row
-            Icon={Users}
-            title={t('ui.profile.familyMembers')}
-            hint={t('ui.profile.comingSoon')}
-            disabled
-          />
-          <Row
-            Icon={ShieldCheck}
-            title={t('ui.profile.insuranceTpa')}
-            hint={t('ui.profile.comingSoon')}
-            disabled
-          />
         </Group>
 
         <Group title={t('ui.profile.preferences')}>
-          <Row
-            Icon={MapPin}
-            title={t('ui.profile.preferredCentre')}
-            hint={t('ui.profile.comingSoon')}
-            disabled
-          />
           <Row
             Icon={Globe}
             title={t('ui.language.title')}
@@ -209,11 +177,6 @@ export default function Profile() {
             onPress={call}
           />
           <Row
-            Icon={MessageCircle}
-            title={t('ui.profile.chatWhatsapp')}
-            onPress={whatsapp}
-          />
-          <Row
             Icon={CircleHelp}
             title={t('ui.profile.faqs')}
             onPress={() => router.push('/profile/faq')}
@@ -221,7 +184,7 @@ export default function Profile() {
         </Group>
 
         <Pressable
-          onPress={confirmLogout}
+          onPress={() => setLogoutOpen(true)}
           accessibilityRole="button"
           style={({ pressed }) => [styles.logout, pressed && styles.pressed]}
         >
@@ -235,6 +198,21 @@ export default function Profile() {
           {t('ui.profile.version', { version })}
         </Txt>
       </Screen>
+
+      {/* The app's own dialog rather than Alert.alert, which is drawn by the OS
+          in the system font and reversed the button order between platforms. */}
+      <ConfirmDialog
+        visible={logoutOpen}
+        destructive
+        icon={<LogOut size={20} color={PALETTE.sosRed} strokeWidth={2.3} />}
+        title={t('ui.profile.logoutTitle')}
+        message={t('ui.profile.logoutConfirm')}
+        confirmLabel={t('ui.common.logout')}
+        cancelLabel={t('ui.profile.staySignedIn')}
+        busy={loggingOut}
+        onConfirm={() => void doLogout()}
+        onCancel={() => setLogoutOpen(false)}
+      />
     </View>
   );
 }

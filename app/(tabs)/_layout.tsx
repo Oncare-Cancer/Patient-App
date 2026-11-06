@@ -23,6 +23,10 @@ import { SURFACE } from '@/constants/theme';
 /** Maps the current route segment to the nav's active key. */
 function activeTab(segment: string | undefined): TabKey {
   switch (segment) {
+    case 'book':
+      // Without this case Book fell through to the default and the bar
+      // highlighted Home while the patient was on the booking flow.
+      return 'book';
     case 'appointments':
       return 'activity';
     case 'documents':
@@ -45,6 +49,9 @@ export default function TabLayout() {
     switch (key) {
       case 'home':
         router.replace('/(tabs)');
+        return;
+      case 'book':
+        router.replace('/(tabs)/book');
         return;
       case 'activity':
         router.replace('/(tabs)/appointments');
@@ -75,11 +82,9 @@ export default function TabLayout() {
         <Tabs.Screen name="profile" />
       </Tabs>
 
-      <BottomNav
-        active={current}
-        onTab={go}
-        onBook={() => router.push('/(tabs)/book')}
-      />
+      {/* Book goes through `go` like every other tab: pushing it stacked a
+          second copy of the flow each time the "+" was tapped. */}
+      <BottomNav active={current} onTab={go} onBook={() => go('book')} />
     </View>
   );
 }

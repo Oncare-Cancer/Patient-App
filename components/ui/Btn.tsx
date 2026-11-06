@@ -26,6 +26,12 @@ type Variant =
   | 'secondary'
   /** Violet-to-pink gradient, for "selected"-flavoured actions. */
   | 'gradient'
+  /**
+   * Red pill, only for confirming a destructive action (Logout, Cancel
+   * appointment). Not in the PDF's button set, but the PDF has no confirm
+   * dialog either, and "Logout" must not look identical to "Stay signed in".
+   */
+  | 'danger'
   /** Text-only, for "Change" / "Edit details" style links. */
   | 'ghost';
 
@@ -61,11 +67,13 @@ export function Btn({
   compact,
   style,
 }: Props) {
-  const isBlock = block ?? (variant === 'primary' || variant === 'secondary');
+  const isBlock =
+    block ??
+    (variant === 'primary' || variant === 'secondary' || variant === 'danger');
   const inert = disabled || loading;
 
   const labelColour =
-    variant === 'primary' || variant === 'gradient'
+    variant === 'primary' || variant === 'gradient' || variant === 'danger'
       ? TEXT.onDark
       : disabled
       ? TEXT.muted
@@ -78,7 +86,10 @@ export function Btn({
       ) : (
         <>
           {icon ? <View style={styles.icon}>{icon}</View> : null}
-          <Txt variant="button" color={labelColour}>
+          {/* A button label is a single line by definition: wrapping one breaks
+              the pill's height and reads as a layout fault. If it does not fit,
+              it truncates and the label is too long for the button. */}
+          <Txt variant="button" color={labelColour} numberOfLines={1}>
             {label}
           </Txt>
         </>
@@ -86,15 +97,20 @@ export function Btn({
     </View>
   );
 
+  /**
+   * Visual styles only. The caller's `style` goes on the Pressable instead,
+   * because it is the outer element and so the only one whose box the parent
+   * layout can see: `flex: 1` or a margin set here had no effect at all, which
+   * is why two buttons meant to share a row sat squeezed against the left edge.
+   */
   const shell: ViewStyle[] = [
     styles.base,
     compact ? styles.compact : styles.regular,
-    isBlock && styles.block,
     variant === 'primary' && styles.primary,
     variant === 'secondary' && styles.secondary,
+    variant === 'danger' && styles.danger,
     variant === 'ghost' && styles.ghost,
     !!disabled && variant !== 'ghost' && styles.disabled,
-    style as ViewStyle,
   ].filter(Boolean) as ViewStyle[];
 
   return (
@@ -103,7 +119,11 @@ export function Btn({
       disabled={inert}
       accessibilityRole="button"
       accessibilityState={{ disabled: !!inert, busy: !!loading }}
-      style={({ pressed }) => [pressed && !inert && styles.pressed]}
+      style={({ pressed }) => [
+        isBlock && styles.block,
+        style,
+        pressed && !inert && styles.pressed,
+      ]}
     >
       {variant === 'gradient' && !disabled ? (
         <LinearGradient
@@ -126,6 +146,10 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     alignItems: 'center',
     justifyContent: 'center',
+    // Fills whatever width the Pressable was given, so a `flex: 1` or stretched
+    // button is a full-width pill rather than a content-sized one floating in a
+    // wide tap area.
+    alignSelf: 'stretch',
   },
   regular: {
     minHeight: TOUCH_MIN,
@@ -147,6 +171,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 1.4,
     borderColor: PALETTE.midnight,
+  },
+  danger: {
+    backgroundColor: PALETTE.sosRed,
+    ...SHADOW.button,
   },
   ghost: {
     paddingHorizontal: SPACE.xs,

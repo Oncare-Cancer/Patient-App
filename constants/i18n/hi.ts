@@ -76,15 +76,26 @@ export const hi: Omit<Strings, 'legal' | 'clinical'> = {
     login: {
       heroLine: 'कैंसर का इलाज,\nस्पष्टता और\nसंवेदना के साथ।',
       heroSub: 'आपके अपॉइंटमेंट, रिपोर्ट और केयर टीम — सब एक जगह।',
+      heroLine2: 'अपने भरोसेमंद\nडॉक्टर से\nअपॉइंटमेंट लें।',
+      heroSub2: 'सेंटर, डॉक्टर और समय — एक मिनट से कम में चुनें।',
+      heroLine3: 'रिपोर्ट और पर्चे,\nहमेशा आपके\nसाथ।',
+      heroSub3: 'हर विज़िट, जाँच और दवा एक ही जगह।',
       title: 'Oncare Plus में लॉगिन करें',
       tabMobile: 'मोबाइल नंबर',
       tabUid: 'हॉस्पिटल UID',
       mobileLabel: 'मोबाइल नंबर',
       uidLabel: 'हॉस्पिटल UID',
       getOtp: 'WhatsApp पर OTP पाएँ',
-      newUserNote: 'Oncare पर नए हैं? आपके मोबाइल नंबर से खाता बन जाएगा।',
+      newUserNote:
+        'वही मोबाइल नंबर डालें जो आपने सेंटर पर दिया था। नंबर न मिलने पर हम आपका नाम लेकर कॉल करेंगे।',
+      or: 'या',
       exploreWithoutLogin: 'बिना लॉगिन देखें',
-      terms: 'आगे बढ़ने पर आप हमारी शर्तें और प्राइवेसी पॉलिसी स्वीकार करते हैं',
+      exploreSubtitle: 'सेंटर, डॉक्टर और कीमतें देखें। OTP की ज़रूरत नहीं।',
+      termsPrefix: 'आगे बढ़ने पर आप हमारी',
+      termsLink: 'शर्तें',
+      termsMid: ' और ',
+      privacyLink: 'प्राइवेसी पॉलिसी',
+      termsSuffix: ' स्वीकार करते हैं।',
       verifyTitle: 'OTP की जाँच',
       otpSentOn: 'WhatsApp पर OTP भेजा गया',
       enterCode: '4 अंकों का कोड डालें',
@@ -104,6 +115,11 @@ export const hi: Omit<Strings, 'legal' | 'clinical'> = {
       loginToConfirm: 'बुकिंग पक्की करने के लिए लॉगिन करें',
       haveUid: 'हॉस्पिटल UID है?',
       loginWithUid: 'UID से लॉगिन करें',
+      loginRequiredTitle: 'आगे बढ़ने के लिए लॉगिन करें',
+      loginRequiredBody:
+        'अपॉइंटमेंट बुक करने के लिए लॉगिन करें। आप हमें कॉल भी कर सकते हैं या अनुरोध भेज सकते हैं — हमारी टीम आपसे संपर्क करेगी।',
+      sessionExpiredTitle: 'सेशन समाप्त',
+      sessionExpiredBody: 'जारी रखने के लिए दोबारा लॉगिन करें।',
     },
 
     home: {
@@ -172,7 +188,7 @@ export const hi: Omit<Strings, 'legal' | 'clinical'> = {
       chooseDoctor: 'डॉक्टर चुनें',
       searchDoctor: 'डॉक्टर या विशेषज्ञता खोजें',
       all: 'सभी',
-      nextFree: 'अगला खाली समय',
+      nextAvailable: 'अगला उपलब्ध समय',
       viewProfile: 'प्रोफ़ाइल देखें',
       typeOfVisit: 'मुलाक़ात का प्रकार',
       firstConsultation: 'पहली मुलाक़ात',
@@ -217,6 +233,7 @@ export const hi: Omit<Strings, 'legal' | 'clinical'> = {
       backToHome: 'होम पर जाएँ',
       bookFailed: 'वह समय पक्का नहीं हो सका',
       bookFailedBody: 'शायद अभी किसी ने ले लिया। कृपया दूसरा चुनें।',
+      selectVisitTypeFirst: 'उपलब्ध समय देखने के लिए मुलाक़ात का प्रकार चुनें',
     },
 
     activity: {
@@ -275,7 +292,9 @@ export const hi: Omit<Strings, 'legal' | 'clinical'> = {
       faqs: 'सामान्य सवाल और शिकायत',
       version: 'वर्शन {{version}}',
       comingSoon: 'जल्द आ रहा है',
+      logoutTitle: 'Oncare Plus से लॉगआउट करें?',
       logoutConfirm: 'दोबारा लॉगिन करने के लिए OTP की ज़रूरत होगी।',
+      staySignedIn: 'लॉगिन रहने दें',
     },
 
     sos: {
@@ -455,6 +474,11 @@ export const hi: Omit<Strings, 'legal' | 'clinical'> = {
       querySent: 'आपका सवाल मिल गया',
       querySentBody: 'हमारी टीम आपसे संपर्क करेगी',
       replyNote: 'हम आम तौर पर एक कार्य दिवस में जवाब देते हैं।',
+      yourEmail: 'आपका ईमेल',
+      emailPlaceholder: 'name@example.com',
+      emailRequired: 'जवाब देने के लिए अपना ईमेल डालें',
+      emailInvalid: 'सही ईमेल पता डालें',
+      questionTooShort: 'अपना सवाल थोड़ा विस्तार से लिखें',
     },
 
     personal: {

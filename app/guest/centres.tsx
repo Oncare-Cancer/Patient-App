@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, Pressable, Linking, Platform } from 'react-native';
-import { MapPin, Navigation, PhoneCall } from 'lucide-react-native';
+import { MapPin, Navigation, PhoneCall, ChevronRight } from 'lucide-react-native';
 import {
   Card,
   Chip,
@@ -114,17 +114,11 @@ export default function GuestCentres() {
                     <Txt variant="bodyMedium" script="latin">
                       {c.name}
                     </Txt>
-                    {c.area ? (
-                      <Txt variant="helperSm" color={TEXT.muted} script="latin">
-                        {c.area}
-                      </Txt>
-                    ) : null}
                   </View>
-                  {c.distanceKm !== undefined ? (
-                    <Txt variant="helperSm" color={PALETTE.purple} script="latin">
-                      {c.distanceKm.toFixed(1)} km
-                    </Txt>
-                  ) : null}
+                  {/* Chevron, not a distance: the CMS stores no area field and
+                      "use my location" was removed, so there is no distance to
+                      show. The row opens the centre's detail page instead. */}
+                  <ChevronRight size={16} color={TEXT.muted} strokeWidth={2.2} />
                 </View>
 
                 <Txt

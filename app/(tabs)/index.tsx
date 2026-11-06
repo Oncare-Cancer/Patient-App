@@ -1,15 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import {
   Search,
-  MapPin,
   UserRound,
-  Home as HomeIcon,
   Pill,
   FlaskConical,
   BedDouble,
-  ShieldCheck,
 } from 'lucide-react-native';
 import {
   Btn,
@@ -28,6 +25,7 @@ import { ServiceGrid, type ServiceTile } from '@/components/home/ServiceGrid';
 import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
 import { appointmentApi } from '@/services/api';
+import { centreName, doctorName } from '@/services/appointments';
 import { listRequests, type OpsRequest } from '@/services/requests';
 import {
   PALETTE,
@@ -79,9 +77,12 @@ function earliestUpcoming(raw: any[]): NextAppointment | null {
     minute: '2-digit',
     hour12: true,
   });
-  const visitType = a.visitType ?? a.type ?? 'Consultation';
-  const doctor = a.practitionerName ?? a.doctorName ?? a.doctor ?? '';
-  const centre = a.locationAlias ?? a.locationName ?? a.centre ?? '';
+  // Field names come from the shared mapper rather than being guessed again
+  // here: the payload uses `visitTypeName`, so the old `a.visitType ?? a.type`
+  // never matched and every card read "Consultation".
+  const visitType = a.visitTypeName ?? 'Consultation';
+  const doctor = doctorName(a);
+  const centre = centreName(a);
 
   return {
     month: when.toLocaleString('en-IN', { month: 'short' }).toUpperCase(),
@@ -124,9 +125,18 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, []);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  /**
+   * Reloads every time Home comes back into focus, not just on mount.
+   *
+   * Booking happens on another screen in the same tab stack, so this component
+   * is never unmounted: with a mount-only effect, a patient who booked an
+   * appointment came back to Home and still saw "No upcoming appointments".
+   */
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load])
+  );
 
   const services: ServiceTile[] = useMemo(
     () => [
@@ -135,12 +145,6 @@ export default function HomeScreen() {
         label: t('ui.home.secondOpinion'),
         Icon: UserRound,
         onPress: () => router.push('/services/second-opinion'),
-      },
-      {
-        key: 'home-care',
-        label: t('ui.home.homeCare'),
-        Icon: HomeIcon,
-        onPress: () => router.push('/services/home-care'),
       },
       {
         key: 'medicines',
@@ -160,12 +164,9 @@ export default function HomeScreen() {
         Icon: BedDouble,
         onPress: () => router.push('/services/admission'),
       },
-      {
-        key: 'insurance',
-        label: t('ui.home.insuranceHelp'),
-        Icon: ShieldCheck,
-        onPress: () => router.push('/services/insurance'),
-      },
+      // Home Care and Insurance Help are intentionally absent: four tiles in a
+      // 2x2 grid give each one room to breathe, and these two were the least
+      // used entry points. Their screens still exist and remain reachable.
     ],
     [t, router]
   );
@@ -219,39 +220,31 @@ export default function HomeScreen() {
           </Txt>
         </Pressable>
 
-        <View style={styles.nearestRow}>
-          <MapPin size={12} color={PALETTE.purple} strokeWidth={2.4} />
-          <Txt variant="helperSm" color={TEXT.secondary} numberOfLines={1} style={styles.flex}>
-            {t('ui.home.nearest')}:{' '}
-            <Txt variant="helper" script="latin">
-              {/* Preferred centre until location permission is wired, per the
-                  Data note on section 05. */}
-              —
-            </Txt>
-          </Txt>
-          <Pressable onPress={() => router.push('/(tabs)/book')} hitSlop={8}>
-            <Txt variant="helperSm" color={PALETTE.deepBlue} style={styles.link}>
-              {t('ui.common.change')}
-            </Txt>
-          </Pressable>
-        </View>
+        {/* The "Nearest centre" row is gone. There is no location permission
+            and no preferred-centre setting, so it could only ever render an
+            em dash next to a "Change" link that went to the booking flow. */}
       </Card>
 
-      <SectionRow
-        action={
-          <Pressable
-            onPress={() => router.push('/(tabs)/appointments')}
-            hitSlop={8}
-            accessibilityRole="button"
-          >
-            <Txt variant="helper" color={PALETTE.purple}>
-              {t('ui.home.viewAll')}
-            </Txt>
-          </Pressable>
-        }
-      >
-        <Txt variant="section">{t('ui.home.yourNextStep')}</Txt>
-      </SectionRow>
+      {/* The heading needs the same breathing room above it as "Care
+          services": SectionRow only carries a bottom margin, so without this
+          wrapper the title sat flush against the booking card. */}
+      <View style={styles.nextStepHeading}>
+        <SectionRow
+          action={
+            <Pressable
+              onPress={() => router.push('/(tabs)/appointments')}
+              hitSlop={8}
+              accessibilityRole="button"
+            >
+              <Txt variant="helper" color={PALETTE.purple}>
+                {t('ui.home.viewAll')}
+              </Txt>
+            </Pressable>
+          }
+        >
+          <Txt variant="section">{t('ui.home.yourNextStep')}</Txt>
+        </SectionRow>
+      </View>
 
       {loading ? (
         <SkeletonCard lines={1} />
@@ -313,16 +306,11 @@ const styles = StyleSheet.create({
     backgroundColor: SURFACE.screen,
     paddingHorizontal: SPACE.sm,
   },
-  nearestRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACE.xxs,
-  },
-  link: {
-    textDecorationLine: 'underline',
-  },
   emptyNext: {
     paddingVertical: SPACE.md,
+  },
+  nextStepHeading: {
+    marginTop: SPACE.lg,
   },
   servicesTitle: {
     marginTop: SPACE.lg,

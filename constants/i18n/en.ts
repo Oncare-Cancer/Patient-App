@@ -69,17 +69,44 @@ export const en = {
     },
 
     login: {
+      // Three hero slides, rotated automatically by LoginHero. Each line is
+      // hard-wrapped to three lines so the hero does not change height as the
+      // slides advance.
       heroLine: 'Cancer care,\nwith clarity and\ncompassion.',
       heroSub: 'Your appointments, reports and care team — in one place.',
+      heroLine2: 'Book with the\ndoctor you\nalready trust.',
+      heroSub2: 'Pick a centre, a doctor and a slot in under a minute.',
+      heroLine3: 'Reports and\nprescriptions,\nalways with you.',
+      heroSub3: 'Every visit, test and medicine in one timeline.',
       title: 'Login to Oncare Plus',
       tabMobile: 'Mobile number',
       tabUid: 'Hospital UID',
       mobileLabel: 'Mobile number',
       uidLabel: 'Hospital UID',
       getOtp: 'Get OTP on WhatsApp',
-      newUserNote: 'New to Oncare? Your mobile number creates your account.',
+      /**
+       * Describes what sendOTP actually does. The previous line claimed "your
+       * mobile number creates your account", which is false: the number is
+       * looked up in the hospital system, and if it is not found the backend
+       * returns code 3 and asks for a name so the team can call back. Nothing
+       * is ever created from the app.
+       */
+      newUserNote:
+        'Use the mobile number you gave at the centre. If we cannot find it, we will take your name and our team will call you back.',
+      or: 'or',
       exploreWithoutLogin: 'Explore without login',
-      terms: 'By continuing you agree to our Terms & Privacy Policy',
+      exploreSubtitle: 'Browse centres, doctors and prices. No OTP needed.',
+      /**
+       * Split into five parts so the two links can be tappable without
+       * string-slicing at runtime, and so Hindi can place them mid-sentence
+       * where its word order needs them.
+       */
+      // No trailing space: LegalLine adds an explicit newline after this.
+      termsPrefix: 'By continuing you agree to our',
+      termsLink: 'Terms & Conditions',
+      termsMid: ' and ',
+      privacyLink: 'Privacy Policy',
+      termsSuffix: '',
       verifyTitle: 'Verify OTP',
       otpSentOn: 'OTP sent on WhatsApp',
       enterCode: 'Enter 4-digit code',
@@ -99,6 +126,14 @@ export const en = {
       loginToConfirm: 'Login to confirm your booking',
       haveUid: 'Have a Hospital UID?',
       loginWithUid: 'Login with UID',
+      // Shown when a guest reaches a locked endpoint. Deliberately not
+      // "Session expired": a guest never had a session, and that wording made
+      // it look like the app had logged them out.
+      loginRequiredTitle: 'Login to continue',
+      loginRequiredBody:
+        'Please login to book an appointment. You can also call us or submit a request and our team will get back to you.',
+      sessionExpiredTitle: 'Session expired',
+      sessionExpiredBody: 'Please login again to continue.',
     },
 
     home: {
@@ -168,7 +203,7 @@ export const en = {
       chooseDoctor: 'Choose a doctor',
       searchDoctor: 'Search doctor or speciality',
       all: 'All',
-      nextFree: 'Next free',
+      nextAvailable: 'Next available',
       viewProfile: 'View profile',
       typeOfVisit: 'Type of visit',
       firstConsultation: 'First consultation',
@@ -213,6 +248,9 @@ export const en = {
       // NOT IN PDF — failure wording for the confirm step.
       bookFailed: 'Could not confirm that slot',
       bookFailedBody: 'It may have just been taken. Please pick another.',
+      // Slots are fetched per visit type, so an empty list before one is chosen
+      // is not the same as no availability.
+      selectVisitTypeFirst: 'Choose a type of visit to see available times',
     },
 
     activity: {
@@ -280,7 +318,9 @@ export const en = {
       // the design but have no API yet, so the rows say so rather than leading
       // nowhere.
       comingSoon: 'Coming soon',
+      logoutTitle: 'Logout of Oncare Plus?',
       logoutConfirm: 'You will need your OTP to sign in again.',
+      staySignedIn: 'Stay signed in',
     },
 
     sos: {
@@ -467,6 +507,11 @@ export const en = {
       querySent: 'We have your question',
       querySentBody: 'Our team will get back to you',
       replyNote: 'We usually reply within one working day.',
+      yourEmail: 'Your email',
+      emailPlaceholder: 'name@example.com',
+      emailRequired: 'Please enter your email so we can reply',
+      emailInvalid: 'Please enter a valid email address',
+      questionTooShort: 'Please describe your question in a few more words',
     },
 
     personal: {

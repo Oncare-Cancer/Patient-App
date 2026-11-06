@@ -20,15 +20,35 @@ import { fetchWrapper } from '@/utils/fetchWrapper';
 
 export type Location = {
   id: string;
+  /** Docpulse's own name. The same for every centre — see `label`. */
   name: string;
-  /** Everything the API returned, so screens can read fields we have not typed. */
+  area?: string;
+  city?: string;
+  /**
+   * What to show a patient.
+   *
+   * Every Docpulse location is called "Oncare Cancer Center", so rendering
+   * `name` alone produces nine identical rows. `name, area` is what the
+   * previous build displayed and what actually distinguishes them.
+   */
+  label: string;
   [key: string]: unknown;
 };
 
 export type Practitioner = {
   id: string;
+  /** "Dr. Rakesh Sharma", built from firstName + lastName. */
   name: string;
+  /** From the CMS record Docpulse is joined against; often absent. */
   speciality?: string;
+  /** Pre-formatted by the CMS, e.g. "11+ Years". Never add a suffix. */
+  experience?: string;
+  /** Photo URL from the CMS. Null for doctors without one. */
+  img?: string | null;
+  /** False when the CMS has no record, so "View profile" is hidden. */
+  hasProfile: boolean;
+  /** The raw joined CMS record, passed to DoctorProfileModal unchanged. */
+  doctorDetails?: Record<string, unknown>;
   [key: string]: unknown;
 };
 
@@ -36,6 +56,8 @@ export type VisitType = string;
 
 export type BookingSlot = {
   dateTime: string;
+  /** Docpulse's own formatted time, e.g. "2:15 PM". Preferred for display. */
+  name?: string;
   [key: string]: unknown;
 };
 
@@ -167,12 +189,10 @@ export async function findNextFreeSlot(params: {
                 day: 'numeric',
                 month: 'short',
               });
-        const time = when.toLocaleTimeString('en-IN', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true,
-        });
-        return { dateTime: free.dateTime, label: `${dayLabel} ${time}` };
+        return {
+          dateTime: free.dateTime,
+          label: `${dayLabel} ${slotLabel(free)}`.trim(),
+        };
       }
     } catch {
       // A failed day is not a failed search — keep probing.
@@ -208,28 +228,67 @@ export function bandOf(iso: string): SlotBand {
   return 'evening';
 }
 
-export function slotTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-IN', {
+/**
+ * A slot's display time.
+ *
+ * Docpulse already sends a formatted `name` ("2:15 PM") and the previous build
+ * rendered that. Reformatting `dateTime` locally is only a fallback, because it
+ * can disagree with what Docpulse considers the slot time across timezones.
+ */
+export function slotLabel(slot: BookingSlot): string {
+  if (slot.name) return String(slot.name);
+  const d = new Date(slot.dateTime);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString('en-IN', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
   });
 }
 
-/** Normalises a practitioner's id and name across payload shapes. */
+/**
+ * Normalises a Docpulse practitioner.
+ *
+ * The payload has `firstName` / `lastName` and a `doctorDetails` object joined
+ * from the CMS by the backend — there is no `name` field, which is why reading
+ * one produced blank cards with no photo or speciality.
+ */
 export function practitionerOf(raw: any): Practitioner {
+  const details = (raw?.doctorDetails ?? {}) as Record<string, unknown>;
+  const hasProfile = Object.keys(details).length > 0;
+
   return {
     ...raw,
     id: String(raw.id ?? raw.practitionerId ?? raw._id ?? ''),
-    name: String(raw.name ?? raw.practitionerName ?? ''),
-    speciality: raw.speciality ?? raw.department ?? raw.specialization,
+    name: `Dr. ${raw.firstName ?? ''} ${raw.lastName ?? ''}`.replace(/\s+/g, ' ').trim(),
+    speciality: (details.specialisation as string) ?? undefined,
+    // Sent by the CMS already reading "11+ Years" — issue #7 is caused by
+    // appending "years of experience" to this, so it is passed through as-is.
+    experience: (details.experience as string) ?? undefined,
+    img: (details.img as string) ?? null,
+    hasProfile,
+    doctorDetails: details,
   };
 }
 
 export function locationOf(raw: any): Location {
+  const name = String(raw.name ?? raw.locationName ?? raw.alias ?? '').trim();
+  const area = String(raw.area ?? '').trim();
+  const city = String(raw.city ?? '').trim();
+
   return {
     ...raw,
     id: String(raw.id ?? raw.locationId ?? raw._id ?? ''),
-    name: String(raw.name ?? raw.locationName ?? raw.alias ?? ''),
+    name,
+    area: area || undefined,
+    city: city || undefined,
+    // "Oncare Cancer Center, Greater Kailash" — the form the previous build
+    // used, and the only thing that tells the nine centres apart.
+    label: [name, area].filter(Boolean).join(', ') || name,
   };
+}
+
+/** Haystack for the centre search box: name plus area, as before. */
+export function locationSearchText(l: Location): string {
+  return `${l.name} ${l.area ?? ''} ${l.city ?? ''}`.toLowerCase();
 }

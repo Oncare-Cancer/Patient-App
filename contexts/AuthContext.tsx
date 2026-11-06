@@ -3,8 +3,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthState } from '../types';
 import { patientApi, documentApi } from '../services/api';
 import { cleanupListeners } from '../services/notifications';
-import { setUnauthorizedHandler, clearUnauthorizedHandler, setUpgradeRequiredHandler } from '../utils/fetchWrapper';
+import {
+  setUnauthorizedHandler,
+  clearUnauthorizedHandler,
+  setUpgradeRequiredHandler,
+  type UnauthorizedInfo,
+} from '../utils/fetchWrapper';
 import { PremiumAlert } from '../components/PremiumAlert';
+import { useT } from './LanguageContext';
 
 interface AuthContextType extends AuthState {
   login: (identifier: string, otp: string, selectedHospitalUid: string) => Promise<boolean>;
@@ -25,6 +31,9 @@ const INITIAL_STATE: AuthState = {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // AuthProvider is mounted inside LanguageProvider, so these alerts can be
+  // translated rather than hard-coded English.
+  const t = useT();
   const [authState, setAuthState] = useState<AuthState>(INITIAL_STATE);
   const [alert, setAlert] = useState<{
     visible: boolean;
@@ -205,8 +214,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Register Global Handlers (401 & 426)
   // ============================
   useEffect(() => {
-    // 401: Unauthorized - Logout
-    const handleUnauthorized = () => {
+    // 401: Unauthorized
+    const handleUnauthorized = ({ hadToken }: UnauthorizedInfo) => {
+      // A guest has no token, so there is nothing to clear and nothing expired.
+      // Clearing state here also used to bounce them out of guest mode to the
+      // login screen, which is how tapping Search or Book as a guest ended in
+      // "Session Expired".
+      if (!hadToken) {
+        setAlert({
+          visible: true,
+          title: t('ui.login.loginRequiredTitle'),
+          message: t('ui.login.loginRequiredBody'),
+          dismissible: true,
+        });
+        return;
+      }
+
       cleanupListeners();
       AsyncStorage.multiRemove(['access_token', 'patient']);
       setAuthState({
@@ -217,8 +240,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       setAlert({
         visible: true,
-        title: 'Session Expired',
-        message: 'Please login again to continue.',
+        title: t('ui.login.sessionExpiredTitle'),
+        message: t('ui.login.sessionExpiredBody'),
         dismissible: true,
       });
     };
@@ -239,7 +262,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       clearUnauthorizedHandler();
     };
-  }, []);
+    // `t` is a dependency so a language switch re-registers the handler and the
+    // next alert is in the newly chosen language.
+  }, [t]);
 
   return (
     <AuthContext.Provider

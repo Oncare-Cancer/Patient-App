@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Screen, ScreenHeader, StepProgress } from '@/components/ui';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Btn, Screen, ScreenHeader, StepProgress } from '@/components/ui';
 import { CentreStep } from '@/components/booking/CentreStep';
 import { DoctorStep } from '@/components/booking/DoctorStep';
 import { SlotStep } from '@/components/booking/SlotStep';
 import { ReviewStep } from '@/components/booking/ReviewStep';
 import { ConfirmedStep } from '@/components/booking/ConfirmedStep';
 import DoctorProfileModal from '@/components/DoctorProfileModal';
-import { useAttachments } from '@/hooks/useAttachments';
 import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
 import {
@@ -17,17 +17,15 @@ import {
   getVisitTypes,
   getBookingSlots,
   createAppointment,
-  findNextFreeSlot,
   locationOf,
   practitionerOf,
   type BookingSlot,
   type Location,
   type Practitioner,
 } from '@/services/booking';
-import { uploadFiles } from '@/services/upload';
 import { formatWhen } from '@/services/appointments';
 import { toastError } from '@/utils/toast';
-import { SPACE, SURFACE } from '@/constants/theme';
+import { NAV_CLEARANCE, SPACE, SURFACE } from '@/constants/theme';
 
 /**
  * C1-C5 — book an appointment.
@@ -45,11 +43,11 @@ import { SPACE, SURFACE } from '@/constants/theme';
 type Step = 0 | 1 | 2 | 3 | 4;
 
 /** Slot probing is N requests per doctor, so only a short list is worth it. */
-const MAX_DOCTORS_TO_PROBE = 6;
 
 export default function Book() {
   const t = useT();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { patient } = useAuth();
   const resume = useLocalSearchParams<{
     resumeCentreId?: string;
@@ -63,17 +61,16 @@ export default function Book() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [loadingLocations, setLoadingLocations] = useState(true);
   const [centre, setCentre] = useState<Location | null>(null);
-  const [locating, setLocating] = useState(false);
+
 
   const [doctors, setDoctors] = useState<Practitioner[]>([]);
   const [loadingDoctors, setLoadingDoctors] = useState(false);
   const [doctor, setDoctor] = useState<Practitioner | null>(null);
-  const [nextFree, setNextFree] = useState<Record<string, string>>({});
   const [profileDoctor, setProfileDoctor] = useState<Practitioner | null>(null);
 
   const [visitTypes, setVisitTypes] = useState<string[]>([]);
   const [visitType, setVisitType] = useState<string | null>(null);
-  const [mode, setMode] = useState<'centre' | 'video'>('centre');
+
 
   const [date, setDate] = useState(new Date());
   const [slots, setSlots] = useState<BookingSlot[]>([]);
@@ -84,7 +81,6 @@ export default function Book() {
   const [submitting, setSubmitting] = useState(false);
   const [bookingId, setBookingId] = useState('');
 
-  const attach = useAttachments();
 
   /* -------------------------------------------------------------- locations */
 
@@ -100,7 +96,6 @@ export default function Book() {
   const loadDoctors = useCallback(
     async (loc: Location) => {
       setLoadingDoctors(true);
-      setNextFree({});
       try {
         const list = (await getPractitioners(loc.id)).map(practitionerOf);
         setDoctors(list);
@@ -114,45 +109,15 @@ export default function Book() {
     [t]
   );
 
-  /**
-   * Fills in each doctor's next free slot, one doctor at a time.
+  /*
+   * The per-doctor "next free slot" prefetch was removed.
    *
-   * Sequential rather than parallel on purpose: this is up to 7 slot requests
-   * per doctor and firing them all at once would mean dozens of simultaneous
-   * calls into Docpulse for one screen.
+   * It walked up to seven days of slots for every doctor at the centre, so
+   * opening the doctor step fired dozens of sequential Docpulse calls to
+   * populate a chip the patient was only skimming past — and the time was
+   * already stale by the time it rendered. The doctor card now shows a plain
+   * "Next available" label and the real times load on the next step.
    */
-  useEffect(() => {
-    if (!centre || doctors.length === 0 || doctors.length > MAX_DOCTORS_TO_PROBE)
-      return;
-
-    let cancelled = false;
-
-    (async () => {
-      for (const d of doctors) {
-        if (cancelled) return;
-        try {
-          const types = await getVisitTypes(centre.id, d.id);
-          const firstType = types[0];
-          if (!firstType) continue;
-          const free = await findNextFreeSlot({
-            locationId: centre.id,
-            practitionerId: d.id,
-            visitTypeName: firstType,
-            days: 7,
-          });
-          if (free && !cancelled) {
-            setNextFree((prev) => ({ ...prev, [d.id]: free.label }));
-          }
-        } catch {
-          // A doctor whose slots cannot be read simply shows no chip.
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [centre, doctors]);
 
   /* ------------------------------------------------------------ visit types */
 
@@ -252,12 +217,6 @@ export default function Book() {
     if (!centre || !doctor || !visitType || !slot || submitting) return;
     setSubmitting(true);
     try {
-      // Reports go up first and are filed as reports, so they appear in Records
-      // as the design's "Saved to your Records too" promises.
-      if (attach.files.length > 0) {
-        await uploadFiles(attach.files, 'report');
-      }
-
       const res = await createAppointment({
         practitionerId: doctor.id,
         locationId: centre.id,
@@ -292,14 +251,11 @@ export default function Book() {
     []
   );
 
-  const visitLabel = [
-    visitType,
-    mode === 'video' ? t('ui.booking.videoCall') : t('ui.booking.atCentre'),
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const visitLabel = visitType ?? '';
 
-  const centreLabel = centre ? String(centre.name) : '';
+  // `label` ("name, area"), not `name` — Docpulse gives every centre the same
+  // name, so `name` alone reads as "Oncare Cancer Center" on every booking.
+  const centreLabel = centre ? centre.label : '';
   const patientLabel = [
     patient?.patient_name,
     patient?.patient_id ? `UID ${patient.patient_id}` : null,
@@ -327,7 +283,9 @@ export default function Book() {
   return (
     <View style={styles.root}>
       <ScreenHeader
-        title={step === 4 ? undefined : t('ui.booking.title')}
+        // Step 4 gets its own title rather than none: leaving it undefined
+        // rendered an empty navy bar with only the SOS pill floating in it.
+        title={step === 4 ? t('ui.booking.confirmedTitle') : t('ui.booking.title')}
         subtitle={
           step > 0 && step < 4
             ? [centreLabel, doctor?.name].filter(Boolean).join(' · ')
@@ -343,20 +301,14 @@ export default function Book() {
         ) : null}
       </ScreenHeader>
 
-      <Screen withNav>
+      {/* Each step starts at the top rather than inheriting the previous
+          step's scroll position. */}
+      <Screen withNav scrollResetKey={step}>
         {step === 0 ? (
           <CentreStep
             locations={locations}
             loading={loadingLocations}
             selected={centre}
-            locating={locating}
-            onUseLocation={() => {
-              // Distance needs centre coordinates, which the Docpulse location
-              // payload does not carry. Wired to the backend centre master once
-              // it exists; until then this is a no-op rather than a fake sort.
-              setLocating(true);
-              setTimeout(() => setLocating(false), 400);
-            }}
             onSelect={(l) => {
               setCentre(l);
               // Changing the centre invalidates everything downstream.
@@ -366,8 +318,9 @@ export default function Book() {
               setSlots([]);
               setSlot(null);
               void loadDoctors(l);
+              // Straight on — picking one of nine centres needs no confirming.
+              setStep(1);
             }}
-            onContinue={() => setStep(1)}
           />
         ) : null}
 
@@ -376,7 +329,6 @@ export default function Book() {
             doctors={doctors}
             loading={loadingDoctors}
             selected={doctor}
-            nextFree={nextFree}
             onViewProfile={setProfileDoctor}
             onSelect={(d) => {
               setDoctor(d);
@@ -384,8 +336,8 @@ export default function Book() {
               setSlots([]);
               setSlot(null);
               if (centre) void loadVisitTypes(centre, d);
+              setStep(2);
             }}
-            onContinue={() => setStep(2)}
           />
         ) : null}
 
@@ -397,8 +349,6 @@ export default function Book() {
               setVisitType(v);
               setSlot(null);
             }}
-            mode={mode}
-            onMode={setMode}
             dates={dates}
             date={date}
             onDate={setDate}
@@ -406,7 +356,6 @@ export default function Book() {
             loadingSlots={loadingSlots}
             selectedSlot={slot}
             onSlot={setSlot}
-            onReview={() => setStep(3)}
           />
         ) : null}
 
@@ -422,7 +371,6 @@ export default function Book() {
             patientLabel={patientLabel}
             reason={reason}
             onReason={setReason}
-            attach={attach}
             onEdit={() => setStep(0)}
             onConfirm={confirm}
             submitting={submitting}
@@ -434,13 +382,36 @@ export default function Book() {
             bookingId={bookingId}
             doctorName={doctor.name}
             whenLabel={formatWhen(slot)}
-            whenIso={slot}
             centreLabel={centreLabel}
             onViewAppointments={() => router.replace('/(tabs)/appointments')}
             onHome={() => router.replace('/(tabs)')}
           />
         ) : null}
       </Screen>
+
+      {/*
+        Sticky CTA for the slot step.
+
+        It lives here rather than inside SlotStep because it has to sit outside
+        the scroll view to stay pinned. It appears only once a time is actually
+        chosen, so it does not cover slots while the patient is still browsing
+        them, and it clears the floating nav by NAV_CLEARANCE.
+      */}
+      {step === 2 && slot ? (
+        <View
+          style={[
+            styles.stickyBar,
+            { paddingBottom: Math.max(insets.bottom, SPACE.xs) + NAV_CLEARANCE },
+          ]}
+          pointerEvents="box-none"
+        >
+          <Btn
+            label={t('ui.booking.reviewBooking')}
+            onPress={() => setStep(3)}
+            disabled={!visitType || !slot}
+          />
+        </View>
+      ) : null}
 
       {/* Reused as-is. It takes no `visible` prop and renders its own Modal, so
           it is mounted only while a doctor is selected. */}
@@ -457,4 +428,15 @@ export default function Book() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: SURFACE.screen },
   progress: { marginTop: SPACE.md },
+  stickyBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: SPACE.gutter,
+    paddingTop: SPACE.sm,
+    backgroundColor: SURFACE.screen,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: SURFACE.divider,
+  },
 });

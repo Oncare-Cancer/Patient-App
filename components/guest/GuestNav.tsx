@@ -29,6 +29,12 @@ export function GuestNav({ active }: { active: TabKey }) {
       router.replace('/guest');
       return;
     }
+    // Browsing doctors is explicitly open to guests; login is only asked for at
+    // the point of confirming a booking.
+    if (key === 'book') {
+      router.push('/guest/doctors');
+      return;
+    }
     setLocked(key);
   };
 

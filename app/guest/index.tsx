@@ -183,7 +183,7 @@ export default function GuestHome() {
               </Txt>
             </View>
             <View style={styles.callMe}>
-              <Txt variant="helperSm" color={TEXT.onDark} center>
+              <Txt variant="helperSm" color={TEXT.onDark} center numberOfLines={1}>
                 {t('ui.guest.callMe')}
               </Txt>
             </View>
@@ -286,14 +286,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  /**
+   * A pill, not a 44px circle: "Call me" is two words and wrapped onto two
+   * lines inside the circle. The whole card is the tap target, so this only
+   * has to be legible, not 44 tall.
+   */
   callMe: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    minHeight: 34,
+    borderRadius: RADIUS.pill,
     backgroundColor: PALETTE.midnight,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 2,
+    paddingHorizontal: SPACE.md,
   },
   sectionTitle: {
     marginTop: SPACE.lg,

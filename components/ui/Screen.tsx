@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   ScrollView,
@@ -27,6 +27,14 @@ export function Screen({
   contentStyle,
   /** Content rendered flush under the header, outside the gutters. */
   bleed,
+  /**
+   * Scrolls back to the top whenever this value changes.
+   *
+   * Multi-step flows swap their content inside one Screen, so the scroll
+   * position carries over: picking a centre near the bottom of a long list
+   * opened the doctor step already scrolled past its heading.
+   */
+  scrollResetKey,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
@@ -35,8 +43,19 @@ export function Screen({
   onRefresh?: () => void;
   contentStyle?: ViewStyle;
   bleed?: React.ReactNode;
+  scrollResetKey?: string | number;
 }) {
   const insets = useSafeAreaInsets();
+  // `ComponentRef<typeof ScrollView>`, not `ScrollView`: under RN 0.88 the
+  // component is a function, so the class type is not the instance type.
+  const scroller = useRef<React.ComponentRef<typeof ScrollView>>(null);
+
+  useEffect(() => {
+    if (scrollResetKey === undefined) return;
+    // Not animated: this is a page change, not a scroll gesture, and animating
+    // it means the new step visibly slides away from the patient.
+    scroller.current?.scrollTo({ y: 0, animated: false });
+  }, [scrollResetKey]);
   const bottomPad =
     (withNav ? NAV_CLEARANCE + Math.max(insets.bottom, SPACE.xs) : insets.bottom) +
     SPACE.lg;
@@ -56,6 +75,7 @@ export function Screen({
 
   return (
     <ScrollView
+      ref={scroller}
       style={styles.root}
       contentContainerStyle={{ paddingBottom: bottomPad }}
       keyboardShouldPersistTaps="handled"

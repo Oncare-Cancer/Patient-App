@@ -34,3 +34,4 @@ export { Logo } from './Logo';
 export { OtpInput, OTP_LENGTH } from './OtpInput';
 export { AttachSheet } from './AttachSheet';
 export { Select, type SelectOption } from './Select';
+export { ConfirmDialog } from './ConfirmDialog';

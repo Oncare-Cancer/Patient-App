@@ -1,12 +1,11 @@
 import React from 'react';
 import { View, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { Building2, Video } from 'lucide-react-native';
 import { Btn, Card, Chip, SkeletonList, Txt } from '@/components/ui';
 import { useT } from '@/contexts/LanguageContext';
 import {
   bandOf,
   isTaken,
-  slotTime,
+  slotLabel,
   type BookingSlot,
   type SlotBand,
 } from '@/services/booking';
@@ -20,7 +19,10 @@ import {
 import type { StringKey } from '@/constants/i18n';
 
 /**
- * C3 — visit type, mode, date and slot.
+ * C3 — visit type, date and slot.
+ *
+ * Visit types come from Docpulse (`visit-types` per location + practitioner) and
+ * are rendered as returned, so whatever the clinic configures is what shows.
  *
  * Two of the PDF's listed bugs are fixed here:
  *
@@ -28,12 +30,12 @@ import type { StringKey } from '@/constants/i18n';
  *    through and not pressable. The old screen let a patient pick one and only
  *    told them after submitting.
  *  - Issue #4, the date picker was a native modal unsupported on web. This is a
- *    horizontal date strip, which works identically on all three platforms and
- *    is what the design shows anyway.
+ *    horizontal date strip, which works on all three platforms and is what the
+ *    design shows anyway.
  *
- * Video consultation is a new option from section 07. It is sent as part of the
- * visit type the API already accepts, so no new endpoint is involved — see the
- * note in the parent where `visitTypeName` is assembled.
+ * There is no "At centre / Video call" switch: Docpulse has no mode parameter,
+ * so the choice could not reach the booking. If video consultations are set up
+ * they arrive as their own visit type.
  */
 
 const BAND_LABEL: Record<SlotBand, StringKey> = {
@@ -46,8 +48,6 @@ export function SlotStep({
   visitTypes,
   visitType,
   onVisitType,
-  mode,
-  onMode,
   dates,
   date,
   onDate,
@@ -55,13 +55,10 @@ export function SlotStep({
   loadingSlots,
   selectedSlot,
   onSlot,
-  onReview,
 }: {
   visitTypes: string[];
   visitType: string | null;
   onVisitType: (v: string) => void;
-  mode: 'centre' | 'video';
-  onMode: (m: 'centre' | 'video') => void;
   dates: Date[];
   date: Date;
   onDate: (d: Date) => void;
@@ -69,7 +66,6 @@ export function SlotStep({
   loadingSlots: boolean;
   selectedSlot: string | null;
   onSlot: (dateTime: string) => void;
-  onReview: () => void;
 }) {
   const t = useT();
   const bands: SlotBand[] = ['morning', 'afternoon', 'evening'];
@@ -111,19 +107,6 @@ export function SlotStep({
         })}
       </View>
 
-      <View style={styles.modeRow}>
-        <Chip
-          label={t('ui.booking.atCentre')}
-          selected={mode === 'centre'}
-          onPress={() => onMode('centre')}
-        />
-        <Chip
-          label={t('ui.booking.videoCall')}
-          selected={mode === 'video'}
-          onPress={() => onMode('video')}
-        />
-      </View>
-
       <Txt variant="section" style={styles.sectionTop}>
         {t('ui.booking.pickDate')}
       </Txt>
@@ -162,7 +145,15 @@ export function SlotStep({
         })}
       </ScrollView>
 
-      {loadingSlots ? (
+      {!visitType ? (
+        // Slots are fetched per visit type, so an empty list before one is
+        // chosen is not "no availability" — saying so would be wrong.
+        <Card tone="info" style={styles.noSlots}>
+          <Txt variant="bodySm" color={TEXT.secondary} center>
+            {t('ui.booking.selectVisitTypeFirst')}
+          </Txt>
+        </Card>
+      ) : loadingSlots ? (
         <SkeletonList count={2} lines={1} />
       ) : slots.length === 0 ? (
         <Card tone="info" style={styles.noSlots}>
@@ -183,7 +174,8 @@ export function SlotStep({
                 {inBand.map((s) => (
                   <Chip
                     key={s.dateTime}
-                    label={slotTime(s.dateTime)}
+                    // Docpulse's own formatted time, not a local reformat.
+                    label={slotLabel(s)}
                     latin
                     shape="box"
                     // Greyed, struck through and not pressable — issue #11.
@@ -205,12 +197,14 @@ export function SlotStep({
         </Txt>
       ) : null}
 
-      <Btn
-        label={t('ui.booking.reviewBooking')}
-        onPress={onReview}
-        disabled={!visitType || !selectedSlot}
-        style={styles.continue}
-      />
+      {/*
+        No Continue button here.
+
+        A full day of 15-minute slots is a very long list, so a button at the
+        end of it sat far below the fold and under the floating nav — after
+        picking a time there was no visible way forward. The parent renders it
+        as a sticky bar pinned above the nav instead.
+      */}
     </View>
   );
 }
@@ -221,7 +215,6 @@ const styles = StyleSheet.create({
   typeRow: { flexDirection: 'row', gap: SPACE.sm, flexWrap: 'wrap' },
   typeWrap: { flexGrow: 1, flexBasis: '46%' },
   typeCard: { gap: 2, minHeight: 64 },
-  modeRow: { flexDirection: 'row', gap: SPACE.xs, marginTop: SPACE.sm },
   dates: { gap: SPACE.xs, paddingVertical: SPACE.sm },
   dateChip: {
     width: 52,
@@ -238,9 +231,7 @@ const styles = StyleSheet.create({
   slot: { minWidth: 72 },
   noSlots: { paddingVertical: SPACE.lg },
   greyNote: { marginBottom: SPACE.sm },
-  continue: { marginTop: SPACE.md, marginBottom: SPACE.lg },
   pressed: { opacity: 0.9 },
 });
 
-const _icons = { Building2, Video };
 const _touch = TOUCH_MIN;

@@ -102,33 +102,57 @@ export async function searchMedicines(params: {
 
 export type Centre = {
   id: string;
-  /** Short name as patients know it, e.g. "Oncare Gurugram". */
+  /** Centre name as Ops maintains it in the CMS, e.g. "Gurugram". */
   name: string;
-  area?: string;
+  slug?: string;
   address: string;
+  /** "delhi-ncr" | "bengaluru", derived server-side. */
   city: string;
   phone?: string;
   lat?: number;
   lng?: number;
-  /** Straight-line km from the patient, when location was shared. */
-  distanceKm?: number;
+  img?: string;
+  bannerImg?: string;
+  about?: string;
+  businessHours?: unknown[];
 };
 
 /**
- * The centre master. One list, so a centre's name cannot differ between booking
- * and the appointment card — issue #5.
+ * Parses the CMS's single `latLong` string, e.g. "13.0167, 77.6364".
+ *
+ * Stored as one comma-separated string rather than two numbers, so it is split
+ * here instead of every screen that wants to open a map.
  */
-export async function getCentres(params?: {
-  lat?: number;
-  lng?: number;
-}): Promise<Centre[]> {
-  const query = new URLSearchParams();
-  if (params?.lat !== undefined) query.set('lat', String(params.lat));
-  if (params?.lng !== undefined) query.set('lng', String(params.lng));
+function latLng(raw: unknown): { lat?: number; lng?: number } {
+  const [a, b] = String(raw ?? '')
+    .split(',')
+    .map((v) => Number(v.trim()));
+  return Number.isFinite(a) && Number.isFinite(b) ? { lat: a, lng: b } : {};
+}
 
-  const res = await fetchWrapper<any>(
-    `/catalog/centres${query.toString() ? `?${query}` : ''}`,
-    { skipAuth: true }
-  );
-  return res?.data ?? [];
+/**
+ * The centre master, from the CMS `centers` collection.
+ *
+ * Reads `/app-centres`, which needs no token — browsing centres is open to
+ * guests (section 06). This is deliberately NOT the Docpulse location list
+ * used for booking: Docpulse names every location "Oncare Cancer Center",
+ * whereas these carry the real names ("Gurugram", "Kalyan Nagar") along with
+ * the address, phone and banner the detail screen needs.
+ */
+export async function getCentres(): Promise<Centre[]> {
+  const res = await fetchWrapper<any>('/app-centres', { skipAuth: true });
+  const raw: any[] = res?.data ?? [];
+  return raw.map((c) => ({
+    id: String(c.id),
+    name: c.name ?? '',
+    slug: c.slug ?? undefined,
+    address: c.address ?? '',
+    city: c.city ?? '',
+    phone: c.phone || undefined,
+    ...latLng(c.latLong),
+    img: c.img || undefined,
+    bannerImg: c.bannerImg || undefined,
+    about: c.about || undefined,
+    businessHours: Array.isArray(c.businessHours) ? c.businessHours : [],
+  }));
 }
