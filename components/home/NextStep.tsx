@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronRight, FlaskConical } from 'lucide-react-native';
+import { ChevronRight, FlaskConical, MapPin } from 'lucide-react-native';
 import { Card, Txt } from '@/components/ui';
 import {
   GRADIENT,
@@ -27,6 +27,7 @@ export function NextAppointmentCard({
   title,
   subtitle,
   onPress,
+  onDirections,
 }: {
   /** Short month, e.g. "NOV". */
   month: string;
@@ -37,6 +38,12 @@ export function NextAppointmentCard({
   /** "Dr. Rakesh Sharma · Gurugram" */
   subtitle: string;
   onPress: () => void;
+  /**
+   * Opens directions to the centre. Omitted when the appointment's location
+   * could not be matched to a centre record, so the button is never offered
+   * without a real address behind it.
+   */
+  onDirections?: () => void;
 }) {
   return (
     <Pressable
@@ -51,6 +58,7 @@ export function NextAppointmentCard({
         end={{ x: 1, y: 1 }}
         style={styles.apptCard}
       >
+        <View style={styles.apptTop}>
         <View style={styles.dateBlock}>
           <Txt variant="helperSm" color={TEXT.onDarkMuted} script="latin">
             {month}
@@ -83,6 +91,25 @@ export function NextAppointmentCard({
         >
           <ChevronRight size={15} color={PALETTE.white} strokeWidth={2.6} />
         </LinearGradient>
+        </View>
+
+        {/* Its own Pressable inside the card's: the card opens the
+            appointment, this opens maps, and a patient standing outside the
+            building wants the second one without going through the first. */}
+        {onDirections ? (
+          <Pressable
+            onPress={onDirections}
+            accessibilityRole="button"
+            accessibilityLabel={`Directions to ${subtitle}`}
+            hitSlop={8}
+            style={({ pressed }) => [styles.directions, pressed && styles.pressed]}
+          >
+            <MapPin size={12} color={TEXT.onDark} strokeWidth={2.4} />
+            <Txt variant="helperSm" color={TEXT.onDark}>
+              Directions
+            </Txt>
+          </Pressable>
+        ) : null}
       </LinearGradient>
     </Pressable>
   );
@@ -123,12 +150,26 @@ export function OpenRequestRow({
 
 const styles = StyleSheet.create({
   apptCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACE.sm,
     borderRadius: RADIUS.card,
     padding: SPACE.sm,
     minHeight: 68,
+    gap: SPACE.xs,
+  },
+  apptTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACE.sm,
+  },
+  directions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    minHeight: 30,
+    paddingHorizontal: SPACE.sm,
+    borderRadius: RADIUS.pill,
+    backgroundColor: 'rgba(255,255,255,0.16)',
   },
   dateBlock: {
     width: 48,

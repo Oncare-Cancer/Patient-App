@@ -140,10 +140,15 @@ export function DoctorStep({
                     ) : null}
 
                     {/*
-                      Availability and "View profile" share one row so the
-                      card stays three lines tall instead of four, and the two
-                      things a patient weighs — when can I see them, and who
-                      are they — sit side by side.
+                      Availability gets the full width, and "View profile" sits
+                      under it.
+                      They used to share one row to keep the card three lines
+                      tall. That worked while availability was just the words
+                      "Next available", but once a real slot is in there
+                      ("Next available: Fri, 8 Nov 2:15 PM") the two collide
+                      and the link gets clipped — so the row that mattered was
+                      unreadable and the action half-tappable. One more line is
+                      the right trade.
                     */}
                     <View style={styles.availRow}>
                       <CalendarCheck size={11} color="#1B7A42" strokeWidth={2.4} />
@@ -158,25 +163,25 @@ export function DoctorStep({
                           ? `${t('ui.booking.nextAvailable')}: ${free}`
                           : t('ui.booking.nextAvailable')}
                       </Txt>
-
-                      {/* Only when the CMS has a record to show. */}
-                      {d.hasProfile ? (
-                        <Pressable
-                          onPress={() => onViewProfile(d)}
-                          accessibilityRole="button"
-                          hitSlop={10}
-                          style={styles.profileLink}
-                        >
-                          <Txt
-                            variant="helperSm"
-                            color={PALETTE.deepBlue}
-                            style={styles.link}
-                          >
-                            {t('ui.booking.viewProfile')}
-                          </Txt>
-                        </Pressable>
-                      ) : null}
                     </View>
+
+                    {/* Only when the CMS has a record to show. */}
+                    {d.hasProfile ? (
+                      <Pressable
+                        onPress={() => onViewProfile(d)}
+                        accessibilityRole="button"
+                        hitSlop={10}
+                        style={styles.profileLink}
+                      >
+                        <Txt
+                          variant="helperSm"
+                          color={PALETTE.deepBlue}
+                          style={styles.link}
+                        >
+                          {t('ui.booking.viewProfile')}
+                        </Txt>
+                      </Pressable>
+                    ) : null}
                   </View>
 
                   <ChevronRight size={16} color={TEXT.muted} strokeWidth={2.2} />

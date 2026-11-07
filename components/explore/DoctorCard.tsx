@@ -1,19 +1,34 @@
 import React from 'react';
 import { View, Pressable, Image, StyleSheet } from 'react-native';
-import { ChevronRight, MapPin, User } from 'lucide-react-native';
+import { Award, ChevronRight, MapPin, User } from 'lucide-react-native';
 import { Card, Txt } from '@/components/ui';
 import { useT } from '@/contexts/LanguageContext';
 import type { Doctor } from '@/services/doctors';
 import { PALETTE, RADIUS, SPACE, SURFACE, TEXT } from '@/constants/theme';
 
 /**
- * One doctor in a list, used by Explore, the centre detail page and the guest
- * doctors screen.
+ * One doctor in a list, used by Explore, the centre detail page, search and
+ * the guest doctors screen.
  *
- * Shared so a doctor looks identical everywhere. The 72px rounded-rectangle
- * photo matches the booking flow's card for the same reason it was changed
- * there: these are head-and-shoulders portraits that a small circular mask
- * crops badly.
+ * Shared so a doctor looks identical everywhere. The rounded-rectangle photo
+ * matches the booking flow's card for the same reason it was changed there:
+ * these are head-and-shoulders portraits that a small circular mask crops
+ * badly.
+ *
+ * WHAT CHANGED AND WHY
+ * The first version stacked four lines of grey text and hung an underlined
+ * "View profile" off the bottom-left corner. Three things were wrong with it:
+ *
+ *  - speciality is the thing a patient scans this list FOR, and it read as
+ *    the same weight as everything else. It is now a tinted chip.
+ *  - the centres were joined with "·" on one clipped line, so a doctor at
+ *    three sites showed "Gurugram · Noida · Kalyan N…". Now the first centre
+ *    is named and the rest become "+2 more", which fits and still says there
+ *    are more.
+ *  - "View profile" was an underlined fragment that did not look like a
+ *    control, and sat next to a chevron that already meant the same thing. It
+ *    is now one footer row, divided off, with the chevron in it — a single
+ *    affordance instead of two half ones.
  *
  * `showCentres` is off inside a centre's own page, where naming the centre on
  * every card would just repeat the page title.
@@ -29,6 +44,7 @@ export function DoctorCard({
 }) {
   const t = useT();
   const centres = doctor.centres.map((c) => c.name).filter(Boolean);
+  const extraCentres = centres.length - 1;
 
   return (
     <Pressable
@@ -59,79 +75,121 @@ export function DoctorCard({
             <Txt variant="bodyMedium" script="latin" numberOfLines={2}>
               {doctor.name}
             </Txt>
-            {doctor.speciality ? (
-              <Txt
-                variant="helperSm"
-                color={TEXT.secondary}
-                script="latin"
-                numberOfLines={2}
-              >
-                {doctor.speciality}
-              </Txt>
-            ) : null}
-            {doctor.experience ? (
-              // Stored already carrying its unit ("18+ Years"), so nothing is
-              // appended here.
-              <Txt
-                variant="helperSm"
-                color={TEXT.muted}
-                script="latin"
-                numberOfLines={1}
-              >
-                {doctor.experience}
-              </Txt>
-            ) : null}
 
-            {showCentres && centres.length > 0 ? (
-              <View style={styles.centreRow}>
-                <MapPin size={11} color={PALETTE.purple} strokeWidth={2.4} />
+            {doctor.speciality ? (
+              <View style={styles.specialityChip}>
                 <Txt
                   variant="helperSm"
                   color={PALETTE.purple}
                   script="latin"
                   numberOfLines={1}
-                  style={styles.flex}
                 >
-                  {centres.join(' · ')}
+                  {doctor.speciality}
                 </Txt>
               </View>
             ) : null}
-          </View>
 
-          <ChevronRight size={16} color={TEXT.muted} strokeWidth={2.2} />
+            {doctor.experience ? (
+              <View style={styles.expRow}>
+                <Award size={11} color={TEXT.muted} strokeWidth={2.2} />
+                {/* Stored already carrying its unit ("18+ Years"), so nothing
+                    is appended here. */}
+                <Txt
+                  variant="helperSm"
+                  color={TEXT.muted}
+                  script="latin"
+                  numberOfLines={1}
+                >
+                  {doctor.experience}
+                </Txt>
+              </View>
+            ) : null}
+
+            {showCentres && centres.length > 0 ? (
+              <View style={styles.centreRow}>
+                <MapPin size={11} color={TEXT.secondary} strokeWidth={2.2} />
+                <Txt
+                  variant="helperSm"
+                  color={TEXT.secondary}
+                  script="latin"
+                  numberOfLines={1}
+                  style={styles.flex}
+                >
+                  {centres[0]}
+                </Txt>
+                {extraCentres > 0 ? (
+                  <View style={styles.moreChip}>
+                    <Txt variant="helperSm" color={TEXT.secondary} script="latin">
+                      {t('ui.explore.moreCentres', { count: extraCentres })}
+                    </Txt>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+          </View>
         </View>
 
-        {doctor.hasProfile ? (
-          <Txt variant="helperSm" color={PALETTE.deepBlue} style={styles.link}>
-            {t('ui.explore.viewProfile')}
+        {/*
+          One footer, one meaning. The label changes with what the tap actually
+          does: a doctor with no website record has no profile to open, so the
+          card books instead — saying "View profile" there would be a promise
+          the next screen cannot keep.
+        */}
+        <View style={styles.footer}>
+          <Txt variant="helper" color={PALETTE.deepBlue}>
+            {doctor.hasProfile
+              ? t('ui.explore.viewProfile')
+              : t('ui.explore.bookNow')}
           </Txt>
-        ) : null}
+          <ChevronRight size={15} color={PALETTE.deepBlue} strokeWidth={2.4} />
+        </View>
       </Card>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { marginBottom: SPACE.sm, gap: SPACE.xs },
+  card: { marginBottom: SPACE.sm, gap: SPACE.sm },
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACE.md },
   avatar: {
-    width: 72,
-    height: 72,
+    width: 76,
+    height: 76,
     borderRadius: RADIUS.cardSm,
     backgroundColor: SURFACE.tint,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+    // A hairline keeps a pale portrait from bleeding into the card.
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: SURFACE.border,
   },
   photo: { width: '100%', height: '100%' },
-  meta: { flex: 1, gap: 1 },
+  meta: { flex: 1, gap: SPACE.xxs },
   flex: { flex: 1 },
-  centreRow: {
+  specialityChip: {
+    alignSelf: 'flex-start',
+    backgroundColor: SURFACE.tint,
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    maxWidth: '100%',
+  },
+  expRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  centreRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  moreChip: {
+    backgroundColor: SURFACE.disabled,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  footer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: SPACE.xxs,
+    justifyContent: 'flex-end',
+    gap: 2,
+    borderTopWidth: 1,
+    borderTopColor: SURFACE.divider,
+    paddingTop: SPACE.xs,
   },
-  link: { textDecorationLine: 'underline' },
   pressed: { opacity: 0.9 },
 });

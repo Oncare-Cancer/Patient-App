@@ -1,5 +1,5 @@
 import { View, Pressable, Image, StyleSheet } from 'react-native';
-import { Check, User } from 'lucide-react-native';
+import { Check, MapPin, User } from 'lucide-react-native';
 import { Btn, Card, Txt } from '@/components/ui';
 import { useT } from '@/contexts/LanguageContext';
 import type { Practitioner } from '@/services/booking';
@@ -12,10 +12,16 @@ import { PALETTE, RADIUS, SPACE, SURFACE, TEXT } from '@/constants/theme';
  * the screen a patient screenshots and comes back to, so the face and
  * speciality matter more than the label "Doctor" next to a string.
  *
- * The design's four secondary actions (Directions, Add to calendar, Call
- * centre, Share) and the WhatsApp reminder note are deliberately absent.
- * Everything those offered lives on the appointment itself in Activity, where
- * it stays useful after this screen is dismissed.
+ * Directions is here because it now has something real to point at: the
+ * booking's Docpulse location is matched to the centre master, which holds the
+ * postal address and coordinates. It was left out while the only thing
+ * available was the Docpulse label, which is the literal string "Oncare Cancer
+ * Center" for every location and so opened an arbitrary centre.
+ *
+ * Add to calendar, Call centre and Share are still absent, and the WhatsApp
+ * reminder note with them: everything they offered lives on the appointment
+ * itself in Activity, where it stays useful after this screen is dismissed,
+ * and the note promised a message the backend does not send.
  */
 export function ConfirmedStep({
   bookingId,
@@ -26,6 +32,7 @@ export function ConfirmedStep({
   onViewProfile,
   onViewAppointments,
   onHome,
+  onDirections,
 }: {
   bookingId: string;
   doctor: Practitioner;
@@ -35,6 +42,8 @@ export function ConfirmedStep({
   onViewProfile: () => void;
   onViewAppointments: () => void;
   onHome: () => void;
+  /** Omitted when the booking's centre could not be matched to an address. */
+  onDirections?: () => void;
 }) {
   const t = useT();
 
@@ -138,6 +147,21 @@ export function ConfirmedStep({
             </Txt>
           </View>
         ))}
+
+        {/* Offered only when the centre was matched, so the button always
+            opens the right place rather than a hopeful search. */}
+        {onDirections ? (
+          <Pressable
+            onPress={onDirections}
+            accessibilityRole="button"
+            accessibilityLabel={t('ui.booking.directions')}
+            hitSlop={8}
+            style={({ pressed }) => [styles.directions, pressed && styles.pressed]}
+          >
+            <MapPin size={14} color={PALETTE.midnight} strokeWidth={2.4} />
+            <Txt variant="helper">{t('ui.booking.directions')}</Txt>
+          </Pressable>
+        ) : null}
       </Card>
 
       <Btn
@@ -208,6 +232,19 @@ const styles = StyleSheet.create({
     gap: SPACE.sm,
   },
   rowLabel: { width: 76 },
+  directions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACE.xs,
+    alignSelf: 'stretch',
+    minHeight: 40,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1.2,
+    borderColor: SURFACE.border,
+    marginTop: SPACE.xxs,
+  },
+  pressed: { opacity: 0.86 },
   rowValue: { flex: 1, textAlign: 'right' },
   primary: { marginTop: SPACE.lg },
   home: { marginTop: SPACE.sm, marginBottom: SPACE.lg },

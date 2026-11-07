@@ -26,6 +26,52 @@ export type DirectionsTarget = {
   lng?: number;
 };
 
+/**
+ * Finds the centre record behind a booking, so Directions has a real address.
+ *
+ * An appointment carries a Docpulse `locationId` and a label. The label is the
+ * literal string "Oncare Cancer Center" for every location in Docpulse, so it
+ * cannot be searched on — matching has to go through the id, which the centre
+ * list now carries (resolved server-side in helper/centreDocpulse.js).
+ *
+ * Falls back to a name match for the rare centre that could not be resolved to
+ * a location, and returns null rather than a guess when nothing matches: a
+ * Directions button that opens the wrong centre is worse than one that opens a
+ * plain search.
+ */
+export function matchCentre<
+  T extends { locationId?: string; name?: string; slug?: string }
+>(
+  centres: T[],
+  appointment: { locationId?: string; locationAlias?: string; locationName?: string }
+): T | null {
+  const id = String(appointment.locationId ?? '').trim();
+  if (id) {
+    const byId = centres.find((c) => String(c.locationId ?? '') === id);
+    if (byId) return byId;
+  }
+
+  // The label is only worth trying when it is not the generic Docpulse one.
+  const label = String(appointment.locationAlias ?? appointment.locationName ?? '')
+    .trim()
+    .toLowerCase();
+  const generic = /^oncare\s*(cancer)?\s*(centre|center)?$/.test(label);
+  if (!label || generic) return null;
+
+  const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const target = squash(label);
+  return (
+    centres.find((c) => {
+      const name = squash(String(c.name ?? ''));
+      const slug = squash(String(c.slug ?? ''));
+      return (
+        (name.length > 2 && (target.includes(name) || name.includes(target))) ||
+        (slug.length > 2 && (target.includes(slug) || slug.includes(target)))
+      );
+    }) ?? null
+  );
+}
+
 /** Parses the CMS's single comma-separated coordinate string. */
 function coordsOf(target: DirectionsTarget): string | null {
   if (

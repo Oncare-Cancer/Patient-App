@@ -111,26 +111,48 @@ function RootLayoutNav() {
         /*
          * Routing by auth state.
          *
-         * Only two rules, and they are deliberately expressed in terms of the
-         * SIGNED-OUT routes rather than the tab group:
+         * Two rules, and they need TWO DIFFERENT route sets — collapsing them
+         * into one is what caused two separate rounds of "everything bounces
+         * back to Home" bugs:
          *
-         *   no session  + not on a signed-out route -> go to login
-         *   has session + on a signed-out route     -> go into the app
+         *   no session  + route not open to guests -> go to login
+         *   has session + route is signed-out only -> go into the app
          *
-         * The previous version redirected a signed-in patient whenever
-         * `segments[0] !== '(tabs)'`, which matched every stacked route the
-         * app pushes — /services/*, /profile/*, /centre/[id], /doctor/[id],
-         * /notifications. Opening any of them bounced straight back to Home,
-         * so Second Opinion, Order Medicines, Lab Test at Home, Admission,
-         * FAQs and the centre/doctor pages all looked broken when in fact they
-         * were simply unreachable.
+         * `SIGNED_OUT_ONLY` is the small set that a logged-in patient has no
+         * business on. It must NOT include /services, /centre, /doctor or
+         * /search: an earlier version redirected a signed-in patient whenever
+         * `segments[0] !== '(tabs)'`, which matched every stacked route the app
+         * pushes, so Second Opinion, Order Medicines, Lab Test at Home,
+         * Admission, FAQs and the centre/doctor pages were all unreachable.
+         *
+         * `GUEST_BROWSABLE` is the larger set a visitor without a session may
+         * see. It carries the service flows because a guest can now raise a
+         * medicine, lab, admission or second-opinion request by giving a name
+         * and number at the point of submit, and the catalogue and profile
+         * screens because they read the token-free endpoints.
          */
-        const signedOutRoute =
-          segments[0] === 'login' || segments[0] === 'guest';
+        const SIGNED_OUT_ONLY = ['login', 'guest'];
+        const GUEST_BROWSABLE = [
+          'login',
+          'guest',
+          'services',
+          'centre',
+          'doctor',
+          'search',
+        ];
+
+        const first = segments[0];
+        const signedOutOnly = SIGNED_OUT_ONLY.includes(first);
+        // Explore is allowed for a guest even though it lives in the tab group,
+        // because it reads only the unauthenticated catalogue endpoints. The
+        // other tabs are patient data and stay closed.
+        const guestBrowsable =
+          GUEST_BROWSABLE.includes(first) ||
+          (first === '(tabs)' && segments[1] === 'explore');
 
         if (!isAuthenticated || !patient) {
-          if (!signedOutRoute) router.replace('/login');
-        } else if (signedOutRoute) {
+          if (!guestBrowsable) router.replace('/login');
+        } else if (signedOutOnly) {
           router.replace('/(tabs)');
         }
       } catch (e) {

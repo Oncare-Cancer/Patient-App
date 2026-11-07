@@ -12,10 +12,8 @@ import {
   FileText,
   Search,
   Share2,
-  Upload,
 } from 'lucide-react-native';
 import {
-  AttachSheet,
   Btn,
   Card,
   Chip,
@@ -27,7 +25,6 @@ import {
   SkeletonList,
   Txt,
 } from '@/components/ui';
-import { useAttachments } from '@/hooks/useAttachments';
 import { useDebounced } from '@/hooks/useDebounced';
 import { useT } from '@/contexts/LanguageContext';
 import {
@@ -36,7 +33,7 @@ import {
   type PatientRecord,
   type RecordCategory,
 } from '@/services/records';
-import { uploadFiles, getFileUrl } from '@/services/upload';
+import { getFileUrl } from '@/services/upload';
 import { toastError, toastSuccess } from '@/utils/toast';
 import {
   PALETTE,
@@ -87,9 +84,7 @@ export default function Records() {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<RecordCategory | null>(null);
-  const [uploading, setUploading] = useState(false);
 
-  const attach = useAttachments();
   const debounced = useDebounced(search, 250);
 
   const load = useCallback(async () => {
@@ -128,23 +123,19 @@ export default function Records() {
 
   const groups = useMemo(() => groupByMonth(filtered), [filtered]);
 
-  /* ----------------------------------------------------------------- upload */
-
-  useEffect(() => {
-    if (attach.files.length === 0 || uploading) return;
-    setUploading(true);
-    uploadFiles(attach.files, 'report')
-      .then(() => {
-        attach.setFiles([]);
-        toastSuccess(t('ui.records.uploadReport'), t('ui.records.uploadedByYou'));
-        return load();
-      })
-      .catch(() => toastError(t('ui.upload.uploadFailed'), t('ui.common.retry')))
-      .finally(() => setUploading(false));
-    // `attach` is a fresh object each render; keying on the file count is what
-    // makes this fire once per pick.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attach.files.length]);
+  /*
+   * There was an "Upload a report" button here, and it has been removed.
+   *
+   * It did upload the file to our own storage, but this list is read from
+   * Docpulse, which does not accept patient-supplied documents — so the file
+   * went somewhere the patient could never see it and the screen looked
+   * unchanged. A button that appears to work and silently drops the patient's
+   * biopsy report is worse than no button.
+   *
+   * Reports still reach us where they are actually needed and actually read:
+   * attached to a Second Opinion or a service request, which the team works
+   * from.
+   */
 
   /* ------------------------------------------------------------- open/share */
 
@@ -204,15 +195,6 @@ export default function Records() {
             ))}
           </View>
         ) : null}
-
-        <Btn
-          label={t('ui.records.uploadReport')}
-          variant="gradient"
-          loading={uploading}
-          onPress={attach.openSheet}
-          icon={<Upload size={15} color={PALETTE.white} strokeWidth={2.2} />}
-          style={styles.uploadBtn}
-        />
 
         {state === 'loading' ? (
           <SkeletonList count={6} lines={1} />
@@ -307,13 +289,6 @@ export default function Records() {
         )}
       </Screen>
 
-      <AttachSheet
-        visible={attach.sheetOpen}
-        onClose={attach.closeSheet}
-        onCamera={attach.fromCamera}
-        onGallery={attach.fromGallery}
-        onDocument={attach.fromDocument}
-      />
     </View>
   );
 }
@@ -327,7 +302,6 @@ const styles = StyleSheet.create({
     gap: SPACE.xs,
     marginTop: SPACE.sm,
   },
-  uploadBtn: { marginTop: SPACE.md, marginBottom: SPACE.lg },
   monthLabel: { marginTop: SPACE.sm, marginBottom: SPACE.xs },
   row: {
     flexDirection: 'row',

@@ -54,6 +54,7 @@ export const hi: Omit<Strings, 'legal' | 'clinical'> = {
     },
 
     explore: {
+      moreCentres: '+{{count}} और',
       title: 'खोजें',
       subtitle: 'हमारे सेंटर और विशेषज्ञ',
       tabCentres: 'सेंटर',
@@ -224,6 +225,22 @@ export const hi: Omit<Strings, 'legal' | 'clinical'> = {
       treatmentCost: 'इलाज का खर्च',
       city: 'शहर',
       requestCallBack: 'कॉल बैक का अनुरोध करें',
+
+      detailsTitle: 'हम आपको कहाँ कॉल करें?',
+      detailsBody:
+        'खाते की ज़रूरत नहीं। हमारी टीम आपका अनुरोध देखकर आपको कॉल करेगी।',
+      detailsSending: 'भेज रहे हैं',
+      namePlaceholder: 'मरीज़ का नाम',
+      nameError: 'कृपया मरीज़ का नाम लिखें',
+      yourNumber: 'मोबाइल नंबर',
+      phoneError: '10 अंकों का सही मोबाइल नंबर लिखें',
+      detailsNote:
+        'इसका इस्तेमाल हम सिर्फ़ इस अनुरोध के लिए कॉल करने में करेंगे। ट्रैक करने और रिपोर्ट भेजने के लिए कभी भी लॉगिन करें।',
+      submitRequest: 'अनुरोध भेजें',
+      ratherLogin: 'मैं लॉगिन करना चाहूँगा',
+      uploadNeedsLogin: 'प्रिस्क्रिप्शन या रिपोर्ट जोड़ने के लिए लॉगिन करें',
+      guestSubmitted:
+        'हमारी टीम आपके दिए नंबर पर कॉल करेगी। इस अनुरोध को ट्रैक करने के लिए कभी भी लॉगिन करें।',
     },
 
     booking: {
@@ -457,6 +474,7 @@ export const hi: Omit<Strings, 'legal' | 'clinical'> = {
       selectTestsHint: 'सूची से चुनें',
       pincodeHint: 'दाम और घर से सैंपल आपके इलाके पर निर्भर करते हैं',
       searchPlaceholder: 'टेस्ट खोजें, जैसे CA 15-3, CBC',
+      pricedByLabs: '{{count}} लैब में उपलब्ध',
       popular: 'आम',
       tumourMarkers: 'Tumour marker',
       blood: 'खून',
@@ -556,6 +574,10 @@ export const hi: Omit<Strings, 'legal' | 'clinical'> = {
       empty: 'अभी कोई सूचना नहीं',
       emptyBody:
         'अपॉइंटमेंट की याद और आपके अनुरोधों की जानकारी यहाँ दिखेगी।',
+      justNow: 'अभी',
+      minutesAgo: '{{count}} मिनट पहले',
+      hoursAgo: '{{count}} घंटे पहले',
+      daysAgo: '{{count}} दिन पहले',
     },
 
     match: {

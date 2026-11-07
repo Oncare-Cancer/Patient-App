@@ -47,6 +47,7 @@ export const en = {
     },
 
     explore: {
+      moreCentres: '+{{count}} more',
       title: 'Explore',
       subtitle: 'Our centres and specialists',
       tabCentres: 'Centres',
@@ -240,6 +241,27 @@ export const en = {
       treatmentCost: 'Treatment cost',
       city: 'City',
       requestCallBack: 'Request call back',
+
+      // NOT IN PDF — section 06 put medicines, lab tests, admission and second
+      // opinion behind login. Asking instead for the two fields the team needs
+      // to call back turns a dead end into a lead, so a guest completes the
+      // flow and gives a name and number at the point of submit.
+      detailsTitle: 'Where should we call you?',
+      detailsBody:
+        'No account needed. Our team reviews your request and calls you back.',
+      detailsSending: 'Sending',
+      namePlaceholder: 'Name of the patient',
+      nameError: 'Please enter the patient name',
+      yourNumber: 'Mobile number',
+      phoneError: 'Enter a valid 10-digit mobile number',
+      detailsNote:
+        'We only use this to call you about this request. Login any time to track it and upload reports.',
+      submitRequest: 'Submit request',
+      ratherLogin: 'I would rather login',
+      // Shown where a guest would otherwise be offered an upload button.
+      uploadNeedsLogin: 'Login to attach a prescription or report',
+      guestSubmitted:
+        'Our team will call you on the number you gave. Login any time to track this request.',
     },
 
     booking: {
@@ -486,6 +508,7 @@ export const en = {
       // NOT IN PDF — the mockups show the pincode chip but not why it is asked.
       pincodeHint: 'prices & home collection depend on your area',
       searchPlaceholder: 'Search test, e.g. CA 15-3, CBC',
+      pricedByLabs: 'Priced by {{count}} labs',
       popular: 'Popular',
       tumourMarkers: 'Tumour markers',
       blood: 'Blood',
@@ -595,6 +618,10 @@ export const en = {
       empty: 'No notifications yet',
       emptyBody:
         'Appointment reminders and updates on your requests will appear here.',
+      justNow: 'just now',
+      minutesAgo: '{{count}}m ago',
+      hoursAgo: '{{count}}h ago',
+      daysAgo: '{{count}}d ago',
     },
 
     match: {

@@ -30,6 +30,13 @@ export type LabTest = {
   /** Null when the catalogue has no selling price for this item. */
   price: number | null;
   /**
+   * Top of the price range, on the grouped views, where the lab partners
+   * behind one test disagree on price.
+   */
+  priceTo?: number;
+  /** How many lab partners price this test. Absent when only one does. */
+  labs?: number;
+  /**
    * Cities this item is priced for, e.g. ["DELHI/NCR"].
    *
    * An array because `labCity` is stored as one: a handful of items are priced
@@ -126,6 +133,15 @@ export type Centre = {
   id: string;
   /** Centre name as Ops maintains it in the CMS, e.g. "Gurugram". */
   name: string;
+  /**
+   * The Docpulse location this centre is booked under, resolved server-side.
+   *
+   * This is the join between an appointment and a real postal address: an
+   * appointment carries only a locationId and a label, and that label is
+   * "Oncare Cancer Center" for every location, so it is useless for maps.
+   * Absent when the centre could not be resolved.
+   */
+  locationId?: string;
   slug?: string;
   address: string;
   /** "delhi-ncr" | "bengaluru", derived server-side. */
@@ -167,6 +183,7 @@ export async function getCentres(): Promise<Centre[]> {
   return raw.map((c) => ({
     id: String(c.id),
     name: c.name ?? '',
+    locationId: c.locationId ? String(c.locationId) : undefined,
     slug: c.slug ?? undefined,
     address: c.address ?? '',
     city: c.city ?? '',

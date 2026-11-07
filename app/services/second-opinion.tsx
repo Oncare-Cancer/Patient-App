@@ -14,13 +14,12 @@ import {
   Txt,
   UploadField,
 } from '@/components/ui';
+import { GuestDetailsSheet } from '@/components/guest/GuestDetailsSheet';
 import { useAttachments } from '@/hooks/useAttachments';
+import { useRequestSubmit } from '@/hooks/useRequestSubmit';
 import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
-import { createRequest } from '@/services/requests';
 import { getCentres, type Centre } from '@/services/catalog';
-import { uploadFiles } from '@/services/upload';
-import { toastError } from '@/utils/toast';
 import { CANCER_TYPES } from '@/constants/clinical';
 import { PALETTE, SPACE, SURFACE, TEXT } from '@/constants/theme';
 
@@ -46,7 +45,6 @@ export default function SecondOpinion() {
   const [centreId, setCentreId] = useState('');
   const [centres, setCentres] = useState<Centre[]>([]);
   const [consent, setConsent] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
   const attach = useAttachments();
 
@@ -62,27 +60,23 @@ export default function SecondOpinion() {
   const valid =
     cancerType.length > 0 && question.trim().length > 4 && consent;
 
-  const submit = async () => {
-    if (!valid || submitting) return;
-    setSubmitting(true);
-    try {
-      const fileKeys = attach.files.length
-        ? await uploadFiles(attach.files, 'report')
-        : [];
-
-      const { requestId } = await createRequest({
-        type: 'secondOpinion',
-        centre: centreId || undefined,
-        note: question.trim(),
-        fileKeys,
-        meta: {
-          cancerType,
-          treatedAt: treatedAt.trim() || undefined,
-          connectVia,
-          consentAt: new Date().toISOString(),
-        },
-      });
-
+  const { submit, submitting, isGuest, guestSheet } = useRequestSubmit({
+    type: 'secondOpinion',
+    files: attach.files,
+    uploadPurpose: 'report',
+    canSubmit: valid,
+    summary: cancerType,
+    build: () => ({
+      centre: centreId || undefined,
+      note: question.trim(),
+      meta: {
+        cancerType,
+        treatedAt: treatedAt.trim() || undefined,
+        connectVia,
+        consentAt: new Date().toISOString(),
+      },
+    }),
+    onSubmitted: ({ requestId, phone }) => {
       const rows = [
         `${t('ui.secondOpinion.typeOfCancer')}|${cancerType}`,
         `${t('ui.secondOpinion.howConnect')}|${
@@ -95,18 +89,10 @@ export default function SecondOpinion() {
 
       router.replace({
         pathname: '/services/submitted',
-        params: {
-          requestId,
-          mobile: patient?.phone_number ?? '',
-          rows,
-        },
+        params: { requestId, mobile: phone, rows },
       });
-    } catch {
-      toastError(t('ui.common.somethingWrong'), t('ui.common.retry'));
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    },
+  });
 
   return (
     <View style={styles.root}>
@@ -122,19 +108,26 @@ export default function SecondOpinion() {
       </ScreenHeader>
 
       <Screen>
-        <Txt variant="helper" color={TEXT.secondary} style={styles.label}>
-          {t('ui.booking.patient')}
-        </Txt>
-        <Card tone="plain" style={styles.patientCard}>
-          <Txt variant="bodyMedium" numberOfLines={1} style={styles.flex}>
-            {patient?.patient_name ?? '—'}
-          </Txt>
-          {patient?.phone_number ? (
-            <Txt variant="helperSm" color={TEXT.muted} script="latin">
-              +91 {patient.phone_number}
+        {/* A guest has no record to show here; they are asked for a name and
+            number at the point of submit instead, so an empty card with a dash
+            in it would be noise. */}
+        {isGuest ? null : (
+          <>
+            <Txt variant="helper" color={TEXT.secondary} style={styles.label}>
+              {t('ui.booking.patient')}
             </Txt>
-          ) : null}
-        </Card>
+            <Card tone="plain" style={styles.patientCard}>
+              <Txt variant="bodyMedium" numberOfLines={1} style={styles.flex}>
+                {patient?.patient_name ?? '\u2014'}
+              </Txt>
+              {patient?.phone_number ? (
+                <Txt variant="helperSm" color={TEXT.muted} script="latin">
+                  +91 {patient.phone_number}
+                </Txt>
+              ) : null}
+            </Card>
+          </>
+        )}
 
         <Select
           label={t('ui.secondOpinion.typeOfCancer')}
@@ -166,15 +159,26 @@ export default function SecondOpinion() {
         <Txt variant="helper" color={TEXT.secondary} style={styles.label}>
           {t('ui.secondOpinion.reports')}
         </Txt>
-        <UploadField
-          label={t('ui.secondOpinion.uploadReports')}
-          hint={t('ui.secondOpinion.uploadReportsHint')}
-          files={attach.files}
-          onPick={attach.openSheet}
-          onRemove={attach.remove}
-          pickFromRecordsLabel={t('ui.homeCare.pickFromRecords')}
-          onPickFromRecords={() => router.push('/(tabs)/documents')}
-        />
+        {/* Uploading needs a session, because the storage key is scoped to a
+            patient id. A guest is told so rather than shown a button that
+            cannot work; the team collects reports on the call. */}
+        {isGuest ? (
+          <Card tone="info" style={styles.patientCard}>
+            <Txt variant="helperSm" color={TEXT.secondary} style={styles.flex}>
+              {t('ui.guest.uploadNeedsLogin')}
+            </Txt>
+          </Card>
+        ) : (
+          <UploadField
+            label={t('ui.secondOpinion.uploadReports')}
+            hint={t('ui.secondOpinion.uploadReportsHint')}
+            files={attach.files}
+            onPick={attach.openSheet}
+            onRemove={attach.remove}
+            pickFromRecordsLabel={t('ui.homeCare.pickFromRecords')}
+            onPickFromRecords={() => router.push('/(tabs)/documents')}
+          />
+        )}
 
         <Txt variant="helper" color={TEXT.secondary} style={styles.labelTop}>
           {t('ui.secondOpinion.howConnect')}
@@ -235,6 +239,8 @@ export default function SecondOpinion() {
         onDocument={attach.fromDocument}
         onRecords={() => router.push('/(tabs)/documents')}
       />
+
+      <GuestDetailsSheet {...guestSheet} />
     </View>
   );
 }

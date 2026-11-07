@@ -129,6 +129,50 @@ export async function createRequest(body: {
   return { requestId: res?.data?.requestId ?? '' };
 }
 
+/** The four service requests a guest can raise without logging in. */
+export type GuestRequestType = 'medicine' | 'lab' | 'admission' | 'secondOpinion';
+
+/**
+ * The same request, raised without a session.
+ *
+ * A guest can browse and build the whole thing; the name and number are asked
+ * for once, at the point of submit, because that is the only information the
+ * team actually needs in order to call back. Home care is not here: it is
+ * scheduled against a patient's own address and treatment plan.
+ *
+ * Two deliberate differences from `createRequest`:
+ *  - `name` and `phone` are required, since there is no token to derive them
+ *    from;
+ *  - no `fileKeys`. Uploading needs a session (the storage key is scoped to a
+ *    patient id), so the guest screens do not offer attachments at all rather
+ *    than offering them and failing.
+ *
+ * There is no guest read endpoint on purpose: a phone number is not a
+ * credential, so the patient is told the team will call rather than being
+ * given a way to look the request up.
+ */
+export async function createGuestRequest(body: {
+  type: GuestRequestType;
+  name: string;
+  phone: string;
+  subType?: string;
+  centre?: string;
+  address?: string;
+  pincode?: string;
+  preferredDate?: string;
+  preferredSlot?: string;
+  note?: string;
+  lines?: RequestLine[];
+  meta?: Record<string, unknown>;
+}): Promise<{ requestId: string }> {
+  const res = await fetchWrapper<any>('/requests/guest', {
+    method: 'POST',
+    body,
+    skipAuth: true,
+  });
+  return { requestId: res?.data?.requestId ?? '' };
+}
+
 /**
  * Saves the cart without submitting it.
  *

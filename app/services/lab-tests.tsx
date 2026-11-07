@@ -25,12 +25,13 @@ import {
   UploadField,
 } from '@/components/ui';
 import { CartLine } from '@/components/services/CartLine';
+import { GuestDetailsSheet } from '@/components/guest/GuestDetailsSheet';
 import { useAttachments } from '@/hooks/useAttachments';
+import { useRequestSubmit } from '@/hooks/useRequestSubmit';
 import { useDebounced } from '@/hooks/useDebounced';
-import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
 import { searchLabTests, type LabTest } from '@/services/catalog';
-import { createRequest, type RequestLine } from '@/services/requests';
+import { type RequestLine } from '@/services/requests';
 import { useDraftSync } from '@/hooks/useDraftSync';
 import { readPrescription, needsCarefulCheck } from '@/services/prescriptionAi';
 import { uploadFiles } from '@/services/upload';
@@ -62,7 +63,6 @@ type Slot = '7-10' | '10-13' | '16-19';
 export default function LabTests() {
   const t = useT();
   const router = useRouter();
-  const { patient } = useAuth();
   // B6: a guest who browsed lab prices arrives here after login. The price
   // list selects nothing, so the pincode is the only thing worth restoring —
   // it is what they would otherwise have to type again.
@@ -86,11 +86,6 @@ export default function LabTests() {
   const [dateChoice, setDateChoice] = useState<'today' | 'tomorrow'>('tomorrow');
   const [slot, setSlot] = useState<Slot>('7-10');
   const [note, setNote] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  // Persists the cart as it changes so the central team can see and
-  // follow up on carts that are never submitted.
-  useDraftSync('lab', lines, submitting);
 
   const attach = useAttachments();
   const debouncedSearch = useDebounced(search, 350);
@@ -176,31 +171,33 @@ export default function LabTests() {
 
   /* ----------------------------------------------------------------- submit */
 
-  const submit = async () => {
-    if (lines.length === 0 || submitting || address.trim().length < 5) return;
-    setSubmitting(true);
-    try {
-      const fileKeys = attach.files.length
-        ? await uploadFiles(attach.files, 'prescription')
-        : [];
+  const canSubmit = lines.length > 0 && address.trim().length >= 5;
 
-      const d = new Date();
-      if (dateChoice === 'tomorrow') d.setDate(d.getDate() + 1);
+  /** The collection date, resolved from the today/tomorrow choice. */
+  const collectionDate = () => {
+    const d = new Date();
+    if (dateChoice === 'tomorrow') d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  };
 
-      const { requestId } = await createRequest({
-        type: 'lab',
-        address: address.trim(),
-        pincode: pincode || undefined,
-        preferredDate: d.toISOString().slice(0, 10),
-        preferredSlot: slot,
-        note: note.trim() || undefined,
-        lines,
-        fileKeys,
-      });
-
+  const { submit, submitting, isGuest, guestSheet } = useRequestSubmit({
+    type: 'lab',
+    files: attach.files,
+    uploadPurpose: 'prescription',
+    canSubmit,
+    summary: t('ui.lab.testsSelected', { count: lines.length }),
+    build: () => ({
+      address: address.trim(),
+      pincode: pincode || undefined,
+      preferredDate: collectionDate(),
+      preferredSlot: slot,
+      note: note.trim() || undefined,
+      lines,
+    }),
+    onSubmitted: ({ requestId, phone }) => {
       const rows = [
         `${t('ui.lab.title')}|${lines.length}`,
-        `${t('ui.homeCare.preferredDate')}|${d.toISOString().slice(0, 10)}`,
+        `${t('ui.homeCare.preferredDate')}|${collectionDate()}`,
         `${t('ui.homeCare.preferredTime')}|${
           slots.find((s) => s.key === slot)?.label ?? ''
         }`,
@@ -208,18 +205,16 @@ export default function LabTests() {
 
       router.replace({
         pathname: '/services/submitted',
-        params: {
-          requestId,
-          mobile: patient?.phone_number ?? '',
-          rows,
-        },
+        params: { requestId, mobile: phone, rows },
       });
-    } catch {
-      toastError(t('ui.common.somethingWrong'), t('ui.common.retry'));
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    },
+  });
+
+  // Persists the cart as it changes so the central team can see and follow up
+  // on carts that are never submitted. Declared after the submit hook because
+  // it needs `submitting` to avoid racing the real submit; it no-ops for a
+  // guest, who has no identity to attach a cart to.
+  useDraftSync('lab', lines, submitting);
 
   /* ----------------------------------------------------------------- render */
 
@@ -240,16 +235,15 @@ export default function LabTests() {
             ? undefined
             : () => setStep(step === 'schedule' ? 'review' : 'choose')
         }
-        actions={
-          step === 'choose' ? (
-            <View style={styles.pinChip}>
-              <MapPin size={11} color={PALETTE.white} strokeWidth={2.4} />
-              <Txt variant="helperSm" color={PALETTE.white} script="latin">
-                {debouncedPin.length === 6 ? debouncedPin : '—'}
-              </Txt>
-            </View>
-          ) : undefined
-        }
+        /*
+         * There was a pincode chip here, next to SOS. It is gone because it
+         * could not answer the question "what is that?": it was not tappable,
+         * it showed an em dash until six digits had been typed, and once they
+         * were, it repeated the Pincode field that sits directly below it with
+         * a label and a hint explaining why the pincode matters. A passive
+         * duplicate beside the one genuinely urgent control in the header is
+         * worse than nothing.
+         */
       />
 
       <Screen contentStyle={styles.tightTop}>
@@ -268,16 +262,21 @@ export default function LabTests() {
             />
 
             <View style={styles.modeRow}>
-              <ModeTile
-                active={mode === 'upload'}
-                Icon={Upload}
-                title={t('ui.lab.uploadPrescription')}
-                hint={t('ui.lab.uploadHint')}
-                onPress={() => {
-                  setMode('upload');
-                  attach.openSheet();
-                }}
-              />
+              {/* Uploading needs a session: the storage key is scoped to a
+                  patient id. A guest selects tests instead, which is the half
+                  of this screen that works without one. */}
+              {isGuest ? null : (
+                <ModeTile
+                  active={mode === 'upload'}
+                  Icon={Upload}
+                  title={t('ui.lab.uploadPrescription')}
+                  hint={t('ui.lab.uploadHint')}
+                  onPress={() => {
+                    setMode('upload');
+                    attach.openSheet();
+                  }}
+                />
+              )}
               <ModeTile
                 active={mode === 'select'}
                 Icon={FlaskConical}
@@ -287,7 +286,7 @@ export default function LabTests() {
               />
             </View>
 
-            {mode === 'upload' ? (
+            {mode === 'upload' && !isGuest ? (
               <View style={styles.block}>
                 <UploadField
                   label={t('ui.lab.uploadPrescription')}
@@ -365,9 +364,16 @@ export default function LabTests() {
                               {test.displayName}
                             </Txt>
                             {/* Turnaround and home-collection removed: the lab
-                                catalogue stores neither field. */}
+                                catalogue stores neither field. The partner
+                                count is real, and it explains why the price
+                                below is a range. */}
+                            {test.labs && test.labs > 1 ? (
+                              <Txt variant="helperSm" color={TEXT.muted}>
+                                {t('ui.lab.pricedByLabs', { count: test.labs })}
+                              </Txt>
+                            ) : null}
                           </View>
-                          <ApproxPrice value={test.price} />
+                          <ApproxPrice value={test.price} to={test.priceTo ?? null} />
                         </Card>
                       </Pressable>
                     );
@@ -518,7 +524,7 @@ export default function LabTests() {
               label={t('ui.lab.submitRequest')}
               onPress={submit}
               loading={submitting}
-              disabled={lines.length === 0 || address.trim().length < 5}
+              disabled={!canSubmit}
               style={styles.submit}
             />
 
@@ -559,6 +565,8 @@ export default function LabTests() {
         onDocument={attach.fromDocument}
         onRecords={() => router.push('/(tabs)/documents')}
       />
+
+      <GuestDetailsSheet {...guestSheet} />
     </View>
   );
 }
@@ -709,15 +717,6 @@ const styles = StyleSheet.create({
   label: { marginTop: SPACE.md, marginBottom: SPACE.xs },
   submit: { marginTop: SPACE.lg },
   footnote: { marginTop: SPACE.sm, marginBottom: SPACE.lg },
-  pinChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    height: 26,
-    paddingHorizontal: SPACE.sm,
-    borderRadius: RADIUS.pill,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-  },
   cartBar: {
     position: 'absolute',
     left: SPACE.gutter,

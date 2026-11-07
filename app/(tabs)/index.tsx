@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import {
@@ -27,6 +27,11 @@ import { useT } from '@/contexts/LanguageContext';
 import { appointmentApi } from '@/services/api';
 import { centreName, doctorName } from '@/services/appointments';
 import { listRequests, type OpsRequest } from '@/services/requests';
+import { ADMISSION_KINDS } from '@/constants/clinical';
+import type { StringKey, TParams } from '@/constants/i18n';
+import { matchCentre, openDirections } from '@/services/directions';
+import { unreadNotificationCount } from '@/services/appNotifications';
+import { getCentres, type Centre } from '@/services/catalog';
 import {
   PALETTE,
   RADIUS,
@@ -50,7 +55,45 @@ type NextAppointment = {
   day: string;
   title: string;
   subtitle: string;
+  /**
+   * The Docpulse location, kept so Directions can resolve this booking to a
+   * real postal address. The label alone cannot do it: Docpulse names every
+   * location "Oncare Cancer Center", so a maps search on it opens an arbitrary
+   * centre.
+   */
+  locationId?: string;
+  locationName?: string;
 };
+
+/** Service request type -> the title the patient knows it by. */
+const REQUEST_TITLE: Record<string, StringKey> = {
+  medicine: 'ui.home.orderMedicines',
+  lab: 'ui.home.labTestAtHome',
+  secondOpinion: 'ui.home.secondOpinion',
+  admission: 'ui.home.admissionDaycare',
+  homeCare: 'ui.home.homeCare',
+  callBack: 'ui.guest.callBackTitle',
+};
+
+/**
+ * A readable title for an open request.
+ *
+ * This row used to print `subType` straight out of the record, so an admission
+ * showed the literal string "dayCare" — an internal value a patient has never
+ * seen. The type gives the name they know, and where the sub-type is one of
+ * the admission kinds it is used instead, because "Day care / chemotherapy" is
+ * more use to them than "Admission & Day-care".
+ */
+function requestTitle(
+  t: (key: StringKey, params?: TParams) => string,
+  req: OpsRequest
+): string {
+  const kind = ADMISSION_KINDS.find((k) => k.value === req.subType);
+  if (kind) return t(kind.labelKey as StringKey);
+
+  const key = REQUEST_TITLE[req.type];
+  return key ? t(key) : req.requestId;
+}
 
 /** Pulls the earliest future appointment out of the Docpulse payload. */
 function earliestUpcoming(raw: any[]): NextAppointment | null {
@@ -89,6 +132,11 @@ function earliestUpcoming(raw: any[]): NextAppointment | null {
     day: String(when.getDate()).padStart(2, '0'),
     title: `${visitType} · ${time}`,
     subtitle: [doctor, centre].filter(Boolean).join(' · '),
+    // Kept so Directions can resolve this booking to a real address. The
+    // label alone cannot: Docpulse names every location "Oncare Cancer
+    // Center".
+    locationId: a.locationId ? String(a.locationId) : undefined,
+    locationName: centre || undefined,
   };
 }
 
@@ -99,7 +147,33 @@ export default function HomeScreen() {
 
   const [appointment, setAppointment] = useState<NextAppointment | null>(null);
   const [openRequest, setOpenRequest] = useState<OpsRequest | null>(null);
+  // The centre master, so the next-appointment card can offer Directions that
+  // open the right building. Public and cached server-side.
+  const [centres, setCentres] = useState<Centre[]>([]);
+  /**
+   * Unread notifications, for the dot on the bell.
+   *
+   * The header has always supported this and home never passed it, so the dot
+   * could not appear however many notifications were waiting. Re-read on focus
+   * because the patient reads them on another screen and comes back.
+   */
+  const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Loaded once for the Directions button on the appointment card. The
+  // endpoint is public and cached server-side, and a failure only costs that
+  // one button, so it never blocks the screen.
+  useEffect(() => {
+    getCentres()
+      .then(setCentres)
+      .catch(() => {});
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void unreadNotificationCount().then(setUnread);
+    }, [])
+  );
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
@@ -174,6 +248,12 @@ export default function HomeScreen() {
   const name = patient?.patient_name ?? '';
   const hospitalId = patient?.patient_id;
 
+  /*
+   * The centre record behind the next appointment, matched on its Docpulse
+   * locationId. Only when it matches does the card offer Directions — a button
+   * that opens the wrong building is worse than no button.
+   */
+  const nextCentre = appointment ? matchCentre(centres, appointment) : null;
   return (
     <Screen
       withNav
@@ -187,6 +267,7 @@ export default function HomeScreen() {
         <HomeHeader
           name={name}
           hospitalId={hospitalId}
+          unreadCount={unread}
           onNotifications={() => router.push('/notifications')}
         />
       }
@@ -250,8 +331,14 @@ export default function HomeScreen() {
         <SkeletonCard lines={1} />
       ) : appointment ? (
         <NextAppointmentCard
-          {...appointment}
+          month={appointment.month}
+          day={appointment.day}
+          title={appointment.title}
+          subtitle={appointment.subtitle}
           onPress={() => router.push('/(tabs)/appointments')}
+          onDirections={
+            nextCentre ? () => openDirections(nextCentre) : undefined
+          }
         />
       ) : (
         <Card tone="info" style={styles.emptyNext}>
@@ -263,8 +350,13 @@ export default function HomeScreen() {
 
       {openRequest ? (
         <OpenRequestRow
-          label={openRequest.subType ?? openRequest.requestId}
-          detail={t(`ui.status.${openRequest.status}`)}
+          label={requestTitle(t, openRequest)}
+          // The id is here because it is what a patient reads out when the
+          // team calls them, and the status because it is the reason this row
+          // is on the home screen at all.
+          detail={[openRequest.requestId, t(`ui.status.${openRequest.status}`)]
+            .filter(Boolean)
+            .join(' · ')}
           onPress={() => router.push('/(tabs)/appointments')}
         />
       ) : null}

@@ -13,13 +13,11 @@ import {
   Txt,
   UploadField,
 } from '@/components/ui';
+import { GuestDetailsSheet } from '@/components/guest/GuestDetailsSheet';
 import { useAttachments } from '@/hooks/useAttachments';
-import { useAuth } from '@/contexts/AuthContext';
+import { useRequestSubmit } from '@/hooks/useRequestSubmit';
 import { useT } from '@/contexts/LanguageContext';
-import { createRequest } from '@/services/requests';
 import { getCentres, type Centre } from '@/services/catalog';
-import { uploadFiles } from '@/services/upload';
-import { toastError } from '@/utils/toast';
 import { ADMISSION_KINDS, PAYMENT_MODES } from '@/constants/clinical';
 import {
   PALETTE,
@@ -45,7 +43,6 @@ import type { StringKey } from '@/constants/i18n';
 export default function Admission() {
   const t = useT();
   const router = useRouter();
-  const { patient } = useAuth();
 
   const [kind, setKind] = useState<string>('dayCareChemo');
   const [centreId, setCentreId] = useState('');
@@ -53,7 +50,6 @@ export default function Admission() {
   const [preferredDate, setPreferredDate] = useState('');
   const [payment, setPayment] = useState<string>('insurance');
   const [wantEstimate, setWantEstimate] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
 
   const attach = useAttachments();
 
@@ -79,27 +75,24 @@ export default function Admission() {
 
   const valid = kind.length > 0 && preferredDate.length > 0;
 
-  const submit = async () => {
-    if (!valid || submitting) return;
-    setSubmitting(true);
-    try {
-      const fileKeys = attach.files.length
-        ? await uploadFiles(attach.files, 'document')
-        : [];
+  const kindLabel = t(
+    (ADMISSION_KINDS.find((k) => k.value === kind)?.labelKey ??
+      'ui.admission.title') as StringKey
+  );
 
-      const { requestId } = await createRequest({
-        type: 'admission',
-        subType: kind,
-        centre: centreId || undefined,
-        preferredDate,
-        fileKeys,
-        meta: { paymentMode: payment, wantEstimate },
-      });
-
-      const kindLabel = t(
-        (ADMISSION_KINDS.find((k) => k.value === kind)?.labelKey ??
-          'ui.admission.title') as StringKey
-      );
+  const { submit, submitting, isGuest, guestSheet } = useRequestSubmit({
+    type: 'admission',
+    files: attach.files,
+    uploadPurpose: 'document',
+    canSubmit: valid,
+    summary: `${kindLabel} · ${preferredDate}`,
+    build: () => ({
+      subType: kind,
+      centre: centreId || undefined,
+      preferredDate,
+      meta: { paymentMode: payment, wantEstimate },
+    }),
+    onSubmitted: ({ requestId, phone }) => {
       const rows = [
         `${t('ui.admission.whatIsPlanned')}|${kindLabel}`,
         `${t('ui.homeCare.preferredDate')}|${preferredDate}`,
@@ -111,18 +104,10 @@ export default function Admission() {
 
       router.replace({
         pathname: '/services/submitted',
-        params: {
-          requestId,
-          mobile: patient?.phone_number ?? '',
-          rows,
-        },
+        params: { requestId, mobile: phone, rows },
       });
-    } catch {
-      toastError(t('ui.common.somethingWrong'), t('ui.common.retry'));
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    },
+  });
 
   return (
     <View style={styles.root}>
@@ -189,15 +174,27 @@ export default function Admission() {
         <Txt variant="helper" color={TEXT.secondary} style={styles.labelTop}>
           {t('ui.admission.doctorsAdvice')}
         </Txt>
-        <UploadField
-          label={t('ui.admission.uploadDocuments')}
-          hint={t('ui.admission.uploadDocumentsHint')}
-          files={attach.files}
-          onPick={attach.openSheet}
-          onRemove={attach.remove}
-          pickFromRecordsLabel={t('ui.homeCare.pickFromRecords')}
-          onPickFromRecords={() => router.push('/(tabs)/documents')}
-        />
+        {/* A guest has no storage of their own to upload into — the object key
+            is scoped to a patient id — so the upload field is replaced by the
+            reason rather than offered and then failing. */}
+        {isGuest ? (
+          <Card tone="info" style={styles.policyCard}>
+            <ShieldCheck size={14} color={PALETTE.midnight} strokeWidth={2.2} />
+            <Txt variant="helperSm" color={TEXT.secondary} style={styles.flex}>
+              {t('ui.guest.uploadNeedsLogin')}
+            </Txt>
+          </Card>
+        ) : (
+          <UploadField
+            label={t('ui.admission.uploadDocuments')}
+            hint={t('ui.admission.uploadDocumentsHint')}
+            files={attach.files}
+            onPick={attach.openSheet}
+            onRemove={attach.remove}
+            pickFromRecordsLabel={t('ui.homeCare.pickFromRecords')}
+            onPickFromRecords={() => router.push('/(tabs)/documents')}
+          />
+        )}
 
         <Txt variant="helper" color={TEXT.secondary} style={styles.labelTop}>
           {t('ui.admission.howPay')}
@@ -259,6 +256,8 @@ export default function Admission() {
         onDocument={attach.fromDocument}
         onRecords={() => router.push('/(tabs)/documents')}
       />
+
+      <GuestDetailsSheet {...guestSheet} />
     </View>
   );
 }

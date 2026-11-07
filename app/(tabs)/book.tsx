@@ -25,6 +25,8 @@ import {
   type Practitioner,
 } from '@/services/booking';
 import { formatWhen } from '@/services/appointments';
+import { matchCentre, openDirections } from '@/services/directions';
+import { getCentres, type Centre } from '@/services/catalog';
 import { toastError } from '@/utils/toast';
 import { NAV_CLEARANCE, SPACE, SURFACE } from '@/constants/theme';
 
@@ -116,6 +118,15 @@ export default function Book() {
   const [submitting, setSubmitting] = useState(false);
   const [bookingId, setBookingId] = useState('');
 
+
+  // The CMS centre master, for Directions on the confirmation screen. Public
+  // and cached server-side; a failure only costs the Directions button.
+  const [centres, setCentres] = useState<Centre[]>([]);
+  useEffect(() => {
+    getCentres()
+      .then(setCentres)
+      .catch(() => {});
+  }, []);
 
   /* -------------------------------------------------------------- locations */
 
@@ -353,6 +364,19 @@ export default function Book() {
   // `label` ("name, area"), not `name` — Docpulse gives every centre the same
   // name, so `name` alone reads as "Oncare Cancer Center" on every booking.
   const centreLabel = centre ? centre.label : '';
+
+  /*
+   * The CMS centre behind the chosen Docpulse location, so the confirmation
+   * screen can offer working Directions.
+   *
+   * Matched on locationId, because the Docpulse label is "Oncare Cancer
+   * Center" for every location and cannot be searched on. When there is no
+   * match the Directions button is not rendered at all rather than opening a
+   * guess.
+   */
+  const bookedCentre = centre
+    ? matchCentre(centres, { locationId: centre.id, locationName: centre.label })
+    : null;
   const patientLabel = [
     patient?.patient_name,
     patient?.patient_id ? `UID ${patient.patient_id}` : null,
@@ -483,6 +507,9 @@ export default function Book() {
             onViewProfile={() => setProfileDoctor(doctor)}
             onViewAppointments={() => router.replace('/(tabs)/appointments')}
             onHome={() => router.replace('/(tabs)')}
+            onDirections={
+              bookedCentre ? () => openDirections(bookedCentre) : undefined
+            }
           />
         ) : null}
       </Screen>

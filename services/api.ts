@@ -137,53 +137,18 @@ export const documentApi = {
   },
 };
 
-export const notificationApi = {
-  getNotifications: async (patientId: string): Promise<Notification[]> => {
-    await delay(600);
-
-    return [
-      {
-        id: '1',
-        patient_id: patientId,
-        title: 'New Document Uploaded',
-        message: 'Your Complete Blood Count Report has been uploaded',
-        type: 'document_upload',
-        related_document_id: '1',
-        is_read: false,
-        created_at: '2025-10-05T10:30:00Z',
-      },
-      {
-        id: '2',
-        patient_id: patientId,
-        title: 'Appointment Reminder',
-        message: 'You have an appointment tomorrow at 10:00 AM',
-        type: 'appointment',
-        is_read: true,
-        created_at: '2025-10-04T15:00:00Z',
-      },
-      {
-        id: '3',
-        patient_id: patientId,
-        title: 'New Document Uploaded',
-        message: 'Your Chest X-Ray Analysis has been uploaded',
-        type: 'document_upload',
-        related_document_id: '2',
-        is_read: true,
-        created_at: '2025-10-03T14:20:00Z',
-      },
-    ];
-  },
-
-  markAsRead: async (notificationId: string): Promise<boolean> => {
-    await delay(300);
-    return true;
-  },
-
-  markAllAsRead: async (patientId: string): Promise<boolean> => {
-    await delay(500);
-    return true;
-  },
-};
+/*
+ * `notificationApi` has been removed.
+ *
+ * It returned three hardcoded notifications — including "Your Complete Blood
+ * Count Report has been uploaded" for a report that does not exist — and the
+ * Notifications screen was left deliberately empty rather than render them,
+ * because showing a cancer patient a fabricated result about their own tests
+ * is not a placeholder.
+ *
+ * The real list lives in services/appNotifications.ts, against the backend
+ * endpoints that now record every notification sent.
+ */
 
 export const pushTokenApi = {
   registerToken: async (

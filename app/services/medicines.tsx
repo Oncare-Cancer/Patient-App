@@ -24,12 +24,13 @@ import {
 } from '@/components/ui';
 import { CartLine } from '@/components/services/CartLine';
 import { MedicineCard } from '@/components/services/MedicineCard';
+import { GuestDetailsSheet } from '@/components/guest/GuestDetailsSheet';
 import { useAttachments } from '@/hooks/useAttachments';
+import { useRequestSubmit } from '@/hooks/useRequestSubmit';
 import { useDebounced } from '@/hooks/useDebounced';
-import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
 import { searchMedicines, type Medicine } from '@/services/catalog';
-import { createRequest, type RequestLine } from '@/services/requests';
+import { type RequestLine } from '@/services/requests';
 import { useDraftSync } from '@/hooks/useDraftSync';
 import { readPrescription, needsCarefulCheck } from '@/services/prescriptionAi';
 import { uploadFiles } from '@/services/upload';
@@ -64,7 +65,6 @@ type NeededFor = '7days' | 'prescribed' | 'some';
 export default function Medicines() {
   const t = useT();
   const router = useRouter();
-  const { patient } = useAuth();
 
   const [step, setStep] = useState<Step>('choose');
   // Opens on the catalogue rather than on an empty screen. The two tiles are
@@ -84,11 +84,6 @@ export default function Medicines() {
   const [address, setAddress] = useState('');
   const [neededFor, setNeededFor] = useState<NeededFor>('prescribed');
   const [note, setNote] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  // Persists the cart as it changes so the central team can see and
-  // follow up on carts that are never submitted.
-  useDraftSync('medicine', lines, submitting);
 
   const attach = useAttachments();
   const debounced = useDebounced(search, 350);
@@ -167,24 +162,22 @@ export default function Medicines() {
 
   /* ----------------------------------------------------------------- submit */
 
-  const submit = async () => {
-    if (lines.length === 0 || submitting) return;
-    if (delivery === 'home' && address.trim().length < 5) return;
-    setSubmitting(true);
-    try {
-      const fileKeys = attach.files.length
-        ? await uploadFiles(attach.files, 'prescription')
-        : [];
+  const canSubmit =
+    lines.length > 0 && !(delivery === 'home' && address.trim().length < 5);
 
-      const { requestId } = await createRequest({
-        type: 'medicine',
-        address: delivery === 'home' ? address.trim() : undefined,
-        note: note.trim() || undefined,
-        lines,
-        fileKeys,
-        meta: { delivery, neededFor },
-      });
-
+  const { submit, submitting, isGuest, guestSheet } = useRequestSubmit({
+    type: 'medicine',
+    files: attach.files,
+    uploadPurpose: 'prescription',
+    canSubmit,
+    summary: t('ui.medicine.itemCountPlural', { count: lines.length }),
+    build: () => ({
+      address: delivery === 'home' ? address.trim() : undefined,
+      note: note.trim() || undefined,
+      lines,
+      meta: { delivery, neededFor },
+    }),
+    onSubmitted: ({ requestId, phone }) => {
       const rows = [
         `${t('ui.medicine.title')}|${lines.length}`,
         `${t('ui.medicine.howDoYouWant')}|${
@@ -197,18 +190,16 @@ export default function Medicines() {
 
       router.replace({
         pathname: '/services/submitted',
-        params: {
-          requestId,
-          mobile: patient?.phone_number ?? '',
-          rows,
-        },
+        params: { requestId, mobile: phone, rows },
       });
-    } catch {
-      toastError(t('ui.common.somethingWrong'), t('ui.common.retry'));
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    },
+  });
+
+  // Persists the cart as it changes so the central team can see and follow up
+  // on carts that are never submitted. Declared after the submit hook because
+  // it needs `submitting` to avoid racing the real submit; it no-ops for a
+  // guest, who has no identity to attach a cart to.
+  useDraftSync('medicine', lines, submitting);
 
   /* ----------------------------------------------------------------- render */
 
@@ -241,17 +232,23 @@ export default function Medicines() {
       <Screen contentStyle={step === 'choose' ? undefined : styles.tightTop}>
         {step === 'choose' ? (
           <>
+            {/* The upload tile is offered only to a signed-in patient:
+                uploading needs a session, because the storage key is scoped to
+                a patient id. A guest gets the catalogue, which is the half of
+                this screen that works without one. */}
             <View style={styles.modeRow}>
-              <ModeTile
-                active={mode === 'upload'}
-                Icon={Upload}
-                title={t('ui.medicine.uploadPrescription')}
-                hint={t('ui.medicine.uploadHint')}
-                onPress={() => {
-                  setMode('upload');
-                  attach.openSheet();
-                }}
-              />
+              {isGuest ? null : (
+                <ModeTile
+                  active={mode === 'upload'}
+                  Icon={Upload}
+                  title={t('ui.medicine.uploadPrescription')}
+                  hint={t('ui.medicine.uploadHint')}
+                  onPress={() => {
+                    setMode('upload');
+                    attach.openSheet();
+                  }}
+                />
+              )}
               <ModeTile
                 active={mode === 'search'}
                 Icon={Search}
@@ -261,7 +258,7 @@ export default function Medicines() {
               />
             </View>
 
-            {mode === 'upload' ? (
+            {mode === 'upload' && !isGuest ? (
               <View style={styles.block}>
                 <UploadField
                   label={t('ui.medicine.uploadPrescription')}
@@ -508,10 +505,7 @@ export default function Medicines() {
               label={t('ui.medicine.sendRequest')}
               onPress={submit}
               loading={submitting}
-              disabled={
-                lines.length === 0 ||
-                (delivery === 'home' && address.trim().length < 5)
-              }
+              disabled={!canSubmit}
               style={styles.submit}
             />
           </>
@@ -551,6 +545,8 @@ export default function Medicines() {
         onDocument={attach.fromDocument}
         onRecords={() => router.push('/(tabs)/documents')}
       />
+
+      <GuestDetailsSheet {...guestSheet} />
     </View>
   );
 }

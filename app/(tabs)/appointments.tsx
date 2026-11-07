@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Pressable,
@@ -44,6 +44,8 @@ import {
   confirmRequestPrice,
   type OpsRequest,
 } from '@/services/requests';
+import { matchCentre, openDirections } from '@/services/directions';
+import { getCentres, type Centre } from '@/services/catalog';
 import { SUPPORT_NUMBER } from '@/constants/contact';
 import { toastError, toastSuccess } from '@/utils/toast';
 import {
@@ -78,8 +80,20 @@ export default function Activity() {
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [refreshing, setRefreshing] = useState(false);
 
+  // The centre master, loaded once so Directions can resolve an appointment's
+  // locationId to a real address. Unauthenticated and cached server-side, and
+  // a failure only degrades Directions, so it never blocks the screen.
+  const [centres, setCentres] = useState<Centre[]>([]);
+  useEffect(() => {
+    getCentres()
+      .then(setCentres)
+      .catch(() => {});
+  }, []);
+
   const [rescheduling, setRescheduling] = useState<Appointment | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  /** The appointment being cancelled, so its button can show a spinner. */
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     // Independent sources: a failing requests endpoint must not hide the
@@ -146,19 +160,33 @@ export default function Activity() {
     Linking.openURL(`${scheme}${SUPPORT_NUMBER}`).catch(() => {});
   };
 
+  /**
+   * Opens directions to the centre this appointment is actually at.
+   *
+   * It used to search on the appointment's own label, which Docpulse sets to
+   * "Oncare Cancer Center" for every location — so maps opened on an arbitrary
+   * Oncare, or nothing at all. The appointment's locationId is matched against
+   * the centre master, which carries the real postal address and coordinates.
+   */
   const directions = (appt: Appointment) => {
-    const query = encodeURIComponent(centreName(appt) || 'Oncare Cancer Centre');
-    const url =
-      Platform.OS === 'ios'
-        ? `http://maps.apple.com/?q=${query}`
-        : `geo:0,0?q=${query}`;
-    Linking.openURL(url).catch(() =>
-      Linking.openURL(
-        `https://www.google.com/maps/search/?api=1&query=${query}`
-      ).catch(() => {})
-    );
+    const centre = matchCentre(centres, appt);
+    if (centre) {
+      openDirections(centre);
+      return;
+    }
+    // No match: fall back to a plain search on whatever label we have, rather
+    // than doing nothing. Still never a silent no-op.
+    openDirections({ name: centreName(appt) || 'Oncare Cancer Centre' });
   };
 
+  /**
+   * Cancels an appointment, with the button showing that it is working.
+   *
+   * The cancel call goes to Docpulse and takes a moment. Without the pending
+   * state the row looked frozen after the patient confirmed, and the button
+   * stayed pressable — so a second tap sent a second cancellation for an
+   * appointment that was already being cancelled.
+   */
   const confirmCancel = (appt: Appointment) => {
     Alert.alert(t('ui.activity.cancelTitle'), t('ui.activity.cancelBody'), [
       { text: t('ui.common.back'), style: 'cancel' },
@@ -166,12 +194,16 @@ export default function Activity() {
         text: t('ui.common.cancel'),
         style: 'destructive',
         onPress: async () => {
+          if (cancellingId) return;
+          setCancellingId(appt.appointmentId);
           try {
             await cancelAppointment(appt.appointmentId);
             toastSuccess(t('ui.activity.cancelDone'));
             await load();
           } catch {
             toastError(t('ui.common.somethingWrong'), t('ui.common.retry'));
+          } finally {
+            setCancellingId(null);
           }
         },
       },
@@ -374,6 +406,14 @@ export default function Activity() {
                           variant="secondary"
                           compact
                           block={false}
+                          loading={cancellingId === appt.appointmentId}
+                          // Every row is disabled while one is cancelling: the
+                          // list reloads afterwards, so letting a second row be
+                          // tapped mid-flight would act on a stale list.
+                          disabled={
+                            cancellingId !== null &&
+                            cancellingId !== appt.appointmentId
+                          }
                           onPress={() => confirmCancel(appt)}
                           style={styles.action}
                         />
