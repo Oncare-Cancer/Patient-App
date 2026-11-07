@@ -17,8 +17,9 @@ import { useAttachments } from '@/hooks/useAttachments';
 import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
 import { createRequest } from '@/services/requests';
-import { uploadFiles } from '@/services/upload';
-import { toastError } from '@/utils/toast';
+import { uploadFiles, isLargeUpload, UploadError } from '@/services/upload';
+import { useUploadProgress } from '@/hooks/useUploadProgress';
+import { toastError, toastSuccess } from '@/utils/toast';
 import { SPACE, SURFACE, TEXT } from '@/constants/theme';
 
 /**
@@ -49,6 +50,8 @@ export default function HomeCareForm() {
   const [slot, setSlot] = useState<Slot>('7-10');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  /* Byte progress for the attachments, shown on the submit button. */
+  const upload = useUploadProgress();
 
   const attach = useAttachments();
 
@@ -78,8 +81,13 @@ export default function HomeCareForm() {
       // than no request, because Ops sees a prescription line with nothing
       // behind it.
       const fileKeys = attach.files.length
-        ? await uploadFiles(attach.files, 'prescription')
+        ? await uploadFiles(attach.files, 'prescription', upload.onProgress)
         : [];
+      // Only when the patient actually waited on it.
+      if (attach.files.length && isLargeUpload(attach.files)) {
+        toastSuccess(t('ui.upload.uploadDone'));
+      }
+      upload.reset();
 
       const { requestId } = await createRequest({
         type: 'homeCare',
@@ -108,9 +116,15 @@ export default function HomeCareForm() {
           rows,
         },
       });
-    } catch {
-      toastError(t('ui.common.somethingWrong'), t('ui.common.retry'));
+    } catch (err) {
+      // The server's own wording when it has one, e.g. which file was too big.
+      if (err instanceof UploadError) {
+        toastError(t('ui.upload.uploadFailed'), err.userMessage);
+      } else {
+        toastError(t('ui.common.somethingWrong'), t('ui.common.retry'));
+      }
     } finally {
+      upload.reset();
       setSubmitting(false);
     }
   };
@@ -221,7 +235,7 @@ export default function HomeCareForm() {
         />
 
         <Btn
-          label={t('ui.homeCare.submitRequest')}
+          label={upload.label ?? t('ui.homeCare.submitRequest')}
           onPress={submit}
           loading={submitting}
           disabled={!valid}

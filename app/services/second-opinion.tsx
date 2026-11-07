@@ -60,7 +60,8 @@ export default function SecondOpinion() {
   const valid =
     cancerType.length > 0 && question.trim().length > 4 && consent;
 
-  const { submit, submitting, isGuest, guestSheet } = useRequestSubmit({
+  const { submit, submitting, uploadLabel, isGuest, guestSheet } =
+    useRequestSubmit({
     type: 'secondOpinion',
     files: attach.files,
     uploadPurpose: 'report',
@@ -222,7 +223,7 @@ export default function SecondOpinion() {
         </Pressable>
 
         <Btn
-          label={t('ui.secondOpinion.requestButton')}
+          label={uploadLabel ?? t('ui.secondOpinion.requestButton')}
           onPress={submit}
           loading={submitting}
           disabled={!valid}

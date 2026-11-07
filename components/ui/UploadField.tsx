@@ -12,16 +12,21 @@ import {
 } from '@/constants/theme';
 
 /**
- * Upload limits, from section 02 and repeated on E2/F1/G1/H1/H2:
- * JPG, PNG or PDF · up to 3 files · 10 MB each.
+ * Upload limits, repeated on E2/F1/G1/H1/H2:
+ * JPG, PNG or PDF · up to 3 files · 50 MB each.
  *
  * Enforced here as constants rather than per-screen so the four upload surfaces
  * cannot drift apart, and so the backend's own validation has a single number to
- * agree with.
+ * agree with — it caps at 50 MB too.
+ *
+ * It was 10 MB, which turned away multi-page hospital PDFs and full-resolution
+ * prescription photographs. 50 MB is only affordable because the file no longer
+ * passes through the API: the app asks for a presigned URL and sends the bytes
+ * straight to S3. See services/upload.ts.
  */
 export const UPLOAD_LIMITS = {
   maxFiles: 3,
-  maxBytes: 10 * 1024 * 1024,
+  maxBytes: 50 * 1024 * 1024,
   mimeTypes: ['image/jpeg', 'image/png', 'application/pdf'] as const,
 } as const;
 

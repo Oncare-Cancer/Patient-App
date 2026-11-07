@@ -100,11 +100,18 @@ export const en = {
       // NOT IN PDF — the mockups show the limits but not the messages for
       // breaking them.
       tooMany: 'You can attach up to 3 files',
-      tooLarge: 'Each file must be under 10 MB',
+      tooLarge: 'Each file must be under 50 MB',
       badType: 'Only JPG, PNG or PDF files',
       permission: 'Permission is needed to attach a file',
       uploading: 'Uploading…',
       uploadFailed: 'Could not upload. Please try again.',
+      // NOT IN PDF — the mockups show a static "Uploading…". A 50 MB file on a
+      // hospital connection takes long enough that a spinner with no number
+      // reads as a hang, so the real byte count is reported.
+      uploadingPct: 'Uploading… {{percent}}%',
+      uploadingOf: 'File {{index}} of {{total}} · {{percent}}%',
+      uploadRetrying: 'Connection dropped · retrying…',
+      uploadDone: 'Upload complete',
     },
 
     language: {
@@ -434,7 +441,7 @@ export const en = {
       preferredTime: 'Preferred time',
       prescriptionAdvice: "Prescription / doctor's advice",
       uploadPrescription: 'Upload prescription',
-      uploadHint: 'JPG, PNG or PDF · up to 3 files · 10 MB each',
+      uploadHint: 'JPG, PNG or PDF · up to 3 files · 50 MB each',
       pickFromRecords: 'pick from My Records',
       noteForTeam: 'Note for our team',
       notePlaceholder: 'e.g. PICC line dressing, injection every 3 days',

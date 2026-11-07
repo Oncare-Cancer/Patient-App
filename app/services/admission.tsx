@@ -80,7 +80,8 @@ export default function Admission() {
       'ui.admission.title') as StringKey
   );
 
-  const { submit, submitting, isGuest, guestSheet } = useRequestSubmit({
+  const { submit, submitting, uploadLabel, isGuest, guestSheet } =
+    useRequestSubmit({
     type: 'admission',
     files: attach.files,
     uploadPurpose: 'document',
@@ -238,7 +239,7 @@ export default function Admission() {
         </Card>
 
         <Btn
-          label={t('ui.admission.submitButton')}
+          label={uploadLabel ?? t('ui.admission.submitButton')}
           onPress={submit}
           loading={submitting}
           disabled={!valid}

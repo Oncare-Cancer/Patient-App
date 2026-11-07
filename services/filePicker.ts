@@ -6,7 +6,7 @@ import { UPLOAD_LIMITS, type PickedFile } from '@/components/ui/UploadField';
  * Prescription and report picking.
  *
  * Section 13's rules table: "Camera / gallery / PDF / from Records · up to 3
- * files · 10 MB each". Camera and gallery go through expo-image-picker, PDFs
+ * files · 50 MB each". Camera and gallery go through expo-image-picker, PDFs
  * through expo-document-picker, and "from Records" is a different thing
  * entirely — it reuses a document the patient already has, so it is handled by
  * the Records picker rather than here.

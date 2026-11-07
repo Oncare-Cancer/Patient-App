@@ -9,9 +9,15 @@ import {
   type RequestLine,
   type RequestType,
 } from '@/services/requests';
-import { uploadFiles, type UploadPurpose } from '@/services/upload';
+import {
+  isLargeUpload,
+  uploadFiles,
+  UploadError,
+  type UploadPurpose,
+} from '@/services/upload';
+import { useUploadProgress } from '@/hooks/useUploadProgress';
 import type { PickedFile } from '@/components/ui/UploadField';
-import { toastError } from '@/utils/toast';
+import { toastError, toastSuccess } from '@/utils/toast';
 
 /** Everything a request carries apart from who it is for and its files. */
 type RequestBody = {
@@ -69,6 +75,7 @@ export function useRequestSubmit({
 
   const [submitting, setSubmitting] = useState(false);
   const [guestOpen, setGuestOpen] = useState(false);
+  const upload = useUploadProgress();
 
   const GUEST_TYPES: RequestType[] = ['medicine', 'lab', 'admission', 'secondOpinion'];
   const guestAllowed = GUEST_TYPES.includes(type);
@@ -77,16 +84,30 @@ export function useRequestSubmit({
     setSubmitting(true);
     try {
       const fileKeys = files.length
-        ? await uploadFiles(files, uploadPurpose)
+        ? await uploadFiles(files, uploadPurpose, upload.onProgress)
         : [];
+      // Only when the patient actually waited. A 400 KB photo finishes before
+      // the toast could be read, and confirming something instant is noise.
+      if (files.length && isLargeUpload(files)) {
+        toastSuccess(t('ui.upload.uploadDone'));
+      }
+      upload.reset();
       const { requestId } = await createRequest({ type, ...build(), fileKeys });
       onSubmitted({ requestId, phone: patient?.phone_number ?? '' });
-    } catch {
-      toastError(t('ui.common.somethingWrong'), t('ui.common.retry'));
+    } catch (err) {
+      upload.reset();
+      // The server's wording when it has one — "that file is 62 MB, over the
+      // 50 MB limit" tells the patient what to do; "something went wrong"
+      // leaves them pressing the same button.
+      if (err instanceof UploadError) {
+        toastError(t('ui.upload.uploadFailed'), err.userMessage);
+      } else {
+        toastError(t('ui.common.somethingWrong'), t('ui.common.retry'));
+      }
     } finally {
       setSubmitting(false);
     }
-  }, [files, uploadPurpose, type, build, onSubmitted, patient, t]);
+  }, [files, uploadPurpose, type, build, onSubmitted, patient, t, upload]);
 
   const asGuest = useCallback(
     async ({ name, phone }: { name: string; phone: string }) => {
@@ -127,6 +148,14 @@ export function useRequestSubmit({
   return {
     submit,
     submitting,
+    /**
+     * "File 2 of 3 · 47%" while attachments are going up, else null.
+     *
+     * Screens put this on the submit button in place of their own label: the
+     * button is already the thing the patient is watching, and a 50 MB upload
+     * behind a label that just says "Submit" looks stuck.
+     */
+    uploadLabel: upload.label,
     /** True when the screen should hide anything that needs a session. */
     isGuest: !isAuthenticated,
     /** Spread onto <GuestDetailsSheet />. */

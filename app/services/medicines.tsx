@@ -33,7 +33,8 @@ import { searchMedicines, type Medicine } from '@/services/catalog';
 import { type RequestLine } from '@/services/requests';
 import { useDraftSync } from '@/hooks/useDraftSync';
 import { readPrescription, needsCarefulCheck } from '@/services/prescriptionAi';
-import { uploadFiles } from '@/services/upload';
+import { uploadFiles, UploadError } from '@/services/upload';
+import { useUploadProgress } from '@/hooks/useUploadProgress';
 import { toastError } from '@/utils/toast';
 import {
   PALETTE,
@@ -130,11 +131,18 @@ export default function Medicines() {
 
   /* ----------------------------------------------------- read prescription */
 
+  /* Progress for the prescription upload, shown on the Read button. */
+  const readUpload = useUploadProgress();
+
   const readUploaded = useCallback(async () => {
     if (attach.files.length === 0) return;
     setReading(true);
     try {
-      const fileKeys = await uploadFiles(attach.files, 'prescription');
+      const fileKeys = await uploadFiles(
+        attach.files,
+        'prescription',
+        readUpload.onProgress
+      );
       const read = await readPrescription({ fileKeys, want: 'medicines' });
       setLines(read.lines);
       setCarefulCheck(needsCarefulCheck(read));
@@ -145,12 +153,17 @@ export default function Medicines() {
         setMode('search');
         toastError(t('ui.medicine.couldNotRead'), t('ui.medicine.searchAddHint'));
       }
-    } catch {
-      toastError(t('ui.upload.uploadFailed'), t('ui.common.retry'));
+    } catch (err) {
+      // The server's own words when it has them, e.g. which file was too big.
+      toastError(
+        t('ui.upload.uploadFailed'),
+        err instanceof UploadError ? err.userMessage : t('ui.common.retry')
+      );
     } finally {
+      readUpload.reset();
       setReading(false);
     }
-  }, [attach.files, t]);
+  }, [attach.files, t, readUpload]);
 
   /* ----------------------------------------------------------------- totals */
 
@@ -165,7 +178,8 @@ export default function Medicines() {
   const canSubmit =
     lines.length > 0 && !(delivery === 'home' && address.trim().length < 5);
 
-  const { submit, submitting, isGuest, guestSheet } = useRequestSubmit({
+  const { submit, submitting, uploadLabel, isGuest, guestSheet } =
+    useRequestSubmit({
     type: 'medicine',
     files: attach.files,
     uploadPurpose: 'prescription',
@@ -269,7 +283,7 @@ export default function Medicines() {
                 />
                 {attach.files.length > 0 ? (
                   <Btn
-                    label={t('ui.medicine.weReadIt')}
+                    label={readUpload.label ?? t('ui.medicine.weReadIt')}
                     onPress={readUploaded}
                     loading={reading}
                     icon={
@@ -500,7 +514,7 @@ export default function Medicines() {
             </Card>
 
             <Btn
-              label={t('ui.medicine.sendRequest')}
+              label={uploadLabel ?? t('ui.medicine.sendRequest')}
               onPress={submit}
               loading={submitting}
               disabled={!canSubmit}
