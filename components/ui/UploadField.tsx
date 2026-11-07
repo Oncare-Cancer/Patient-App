@@ -49,8 +49,6 @@ export function UploadField({
   files,
   onPick,
   onRemove,
-  onPickFromRecords,
-  pickFromRecordsLabel,
   disabled,
 }: {
   label: string;
@@ -59,8 +57,6 @@ export function UploadField({
   onPick: () => void;
   onRemove: (index: number) => void;
   /** "or pick from My Records" — present on E2, F1, G1. */
-  onPickFromRecords?: () => void;
-  pickFromRecordsLabel?: string;
   disabled?: boolean;
 }) {
   const full = files.length >= UPLOAD_LIMITS.maxFiles;
@@ -121,18 +117,13 @@ export function UploadField({
         </View>
       ))}
 
-      {onPickFromRecords && pickFromRecordsLabel ? (
-        <Pressable
-          onPress={onPickFromRecords}
-          accessibilityRole="button"
-          hitSlop={8}
-          style={styles.recordsLink}
-        >
-          <Txt variant="helper" color={PALETTE.deepBlue} style={styles.underline}>
-            {pickFromRecordsLabel}
-          </Txt>
-        </Pressable>
-      ) : null}
+      {/*
+        "Pick from my records" used to sit here and has been removed. It
+        navigated to the Documents tab, which has no selection mode — so the
+        patient landed on a list with no way to attach anything back, and lost
+        the half-filled form they left behind. Camera, gallery and file cover
+        every real case.
+      */}
     </View>
   );
 }
@@ -191,12 +182,6 @@ const styles = StyleSheet.create({
   },
   remove: {
     padding: 2,
-  },
-  recordsLink: {
-    alignSelf: 'center',
-    marginTop: SPACE.xs,
-    minHeight: 28,
-    justifyContent: 'center',
   },
   underline: {
     textDecorationLine: 'underline',

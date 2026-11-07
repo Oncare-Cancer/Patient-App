@@ -244,6 +244,7 @@ export const hi: Omit<Strings, 'legal' | 'clinical'> = {
     },
 
     booking: {
+      centreDetails: 'सेंटर की जानकारी',
       title: 'अपॉइंटमेंट बुक करें',
       stepCentre: 'सेंटर',
       stepDoctor: 'डॉक्टर',

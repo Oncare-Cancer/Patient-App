@@ -266,8 +266,6 @@ export default function Medicines() {
                   files={attach.files}
                   onPick={attach.openSheet}
                   onRemove={attach.remove}
-                  pickFromRecordsLabel={t('ui.homeCare.pickFromRecords')}
-                  onPickFromRecords={() => router.push('/(tabs)/documents')}
                 />
                 {attach.files.length > 0 ? (
                   <Btn
@@ -543,7 +541,6 @@ export default function Medicines() {
         onCamera={attach.fromCamera}
         onGallery={attach.fromGallery}
         onDocument={attach.fromDocument}
-        onRecords={() => router.push('/(tabs)/documents')}
       />
 
       <GuestDetailsSheet {...guestSheet} />

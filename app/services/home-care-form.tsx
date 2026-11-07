@@ -208,8 +208,6 @@ export default function HomeCareForm() {
           files={attach.files}
           onPick={attach.openSheet}
           onRemove={attach.remove}
-          pickFromRecordsLabel={t('ui.homeCare.pickFromRecords')}
-          onPickFromRecords={() => router.push('/(tabs)/documents')}
         />
 
         <Field
@@ -240,7 +238,6 @@ export default function HomeCareForm() {
         onCamera={attach.fromCamera}
         onGallery={attach.fromGallery}
         onDocument={attach.fromDocument}
-        onRecords={() => router.push('/(tabs)/documents')}
       />
     </View>
   );

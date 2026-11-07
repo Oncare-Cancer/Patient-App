@@ -2,17 +2,19 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Pressable,
+  Image,
   StyleSheet,
   Linking,
   Platform,
   Alert,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
   CalendarDays,
   MapPin,
   Navigation,
   Inbox,
+  User,
 } from 'lucide-react-native';
 import {
   Btn,
@@ -35,6 +37,10 @@ import {
   bucketOf,
   centreName,
   doctorName,
+  doctorInitials,
+  doctorPhoto,
+  doctorProfileId,
+  doctorSpeciality,
   formatWhen,
   type Appointment,
   type ApptBucket,
@@ -50,6 +56,7 @@ import { SUPPORT_NUMBER } from '@/constants/contact';
 import { toastError, toastSuccess } from '@/utils/toast';
 import {
   PALETTE,
+  RADIUS,
   SPACE,
   SURFACE,
   TEXT,
@@ -71,6 +78,7 @@ type ViewKey = 'appointments' | 'requests';
 
 export default function Activity() {
   const t = useT();
+  const router = useRouter();
 
   const [view, setView] = useState<ViewKey>('appointments');
   const [bucket, setBucket] = useState<ApptBucket>('upcoming');
@@ -308,129 +316,202 @@ export default function Activity() {
                 title={t('ui.activity.noAppointments')}
               />
             ) : (
-              shown.map((appt) => (
-                <Card key={appt.appointmentId} style={styles.apptCard}>
-                  <View style={styles.apptTop}>
-                    <View style={styles.flex}>
-                      <Txt variant="bodyMedium" script="latin" numberOfLines={1}>
-                        {appt.visitTypeName ?? t('ui.guest.consultation')}
-                      </Txt>
-                      <Txt variant="helperSm" color={TEXT.muted} script="latin">
-                        {appt.appointmentId}
-                      </Txt>
-                    </View>
-                    <StatusBadge
-                      label={
-                        bucket === 'cancelled'
-                          ? t('ui.activity.cancelled')
-                          : bucket === 'past'
-                          ? t('ui.status.completed')
-                          : t('ui.status.confirmed')
-                      }
-                      status={
-                        bucket === 'cancelled'
-                          ? 'cancelled'
-                          : bucket === 'past'
-                          ? 'completed'
-                          : 'confirmed'
-                      }
-                    />
-                  </View>
+              shown.map((appt) => {
+                // Resolved once per card rather than inside each branch of the
+                // JSX: both the link and its own press handler need them, and
+                // matchCentre scans the centre master.
+                const centre = matchCentre(centres, appt);
+                const profileId = doctorProfileId(appt);
+                const photo = doctorPhoto(appt);
+                const speciality = doctorSpeciality(appt);
 
-                  {doctorName(appt) ? (
-                    <View style={styles.doctorRow}>
-                      <View style={styles.avatar}>
-                        <Txt variant="helperSm" script="latin">
-                          {doctorName(appt)
-                            .replace(/^Dr\.?\s*/i, '')
-                            .split(/\s+/)
-                            .slice(0, 2)
-                            .map((p) => p[0])
-                            .join('')
-                            .toUpperCase()}
+                return (
+                  <Card key={appt.appointmentId} style={styles.apptCard}>
+                    <View style={styles.apptTop}>
+                      <View style={styles.flex}>
+                        <Txt variant="bodyMedium" script="latin" numberOfLines={1}>
+                          {appt.visitTypeName ?? t('ui.guest.consultation')}
+                        </Txt>
+                        <Txt variant="helperSm" color={TEXT.muted} script="latin">
+                          {appt.appointmentId}
                         </Txt>
                       </View>
-                      <Txt variant="bodySm" script="latin" numberOfLines={1}>
-                        {doctorName(appt)}
-                      </Txt>
+                      <StatusBadge
+                        label={
+                          bucket === 'cancelled'
+                            ? t('ui.activity.cancelled')
+                            : bucket === 'past'
+                            ? t('ui.status.completed')
+                            : t('ui.status.confirmed')
+                        }
+                        status={
+                          bucket === 'cancelled'
+                            ? 'cancelled'
+                            : bucket === 'past'
+                            ? 'completed'
+                            : 'confirmed'
+                        }
+                      />
                     </View>
-                  ) : null}
 
-                  <View style={styles.metaRow}>
-                    <CalendarDays size={13} color={TEXT.muted} strokeWidth={2.2} />
-                    <Txt variant="helperSm" color={TEXT.secondary} script="latin">
-                      {formatWhen(appt.dateTime)}
-                    </Txt>
-                  </View>
-                  {centreName(appt) ? (
+                    {doctorName(appt) ? (
+                      <View style={styles.doctorRow}>
+                        <View style={styles.avatar}>
+                          {photo ? (
+                            <Image
+                              source={{ uri: photo }}
+                              style={styles.photo}
+                              resizeMode="cover"
+                              accessibilityLabel={doctorName(appt)}
+                            />
+                          ) : (
+                            <Txt variant="helperSm" script="latin">
+                              {doctorInitials(appt)}
+                            </Txt>
+                          )}
+                        </View>
+                        <View style={styles.flex}>
+                          <Txt variant="bodySm" script="latin" numberOfLines={1}>
+                            {doctorName(appt)}
+                          </Txt>
+                          {speciality ? (
+                            <Txt
+                              variant="helperSm"
+                              color={PALETTE.purple}
+                              script="latin"
+                              numberOfLines={1}
+                            >
+                              {speciality}
+                            </Txt>
+                          ) : null}
+                        </View>
+                      </View>
+                    ) : null}
+
                     <View style={styles.metaRow}>
-                      <MapPin size={13} color={TEXT.muted} strokeWidth={2.2} />
-                      <Txt
-                        variant="helperSm"
-                        color={TEXT.secondary}
-                        script="latin"
-                        numberOfLines={1}
-                      >
-                        {centreName(appt)}
+                      <CalendarDays size={13} color={TEXT.muted} strokeWidth={2.2} />
+                      <Txt variant="helperSm" color={TEXT.secondary} script="latin">
+                        {formatWhen(appt.dateTime)}
                       </Txt>
                     </View>
-                  ) : null}
+                    {centreName(appt) ? (
+                      <View style={styles.metaRow}>
+                        <MapPin size={13} color={TEXT.muted} strokeWidth={2.2} />
+                        <Txt
+                          variant="helperSm"
+                          color={TEXT.secondary}
+                          script="latin"
+                          numberOfLines={1}
+                        >
+                          {centreName(appt)}
+                        </Txt>
+                      </View>
+                    ) : null}
 
-                  <View style={styles.actions}>
-                    {bucket === 'upcoming' ? (
-                      <>
+                    {/*
+                      The two things a patient looks up about a booking they
+                      already have: who the doctor is, and where the centre
+                      actually is. Each appears only when there is a record
+                      behind it — a Docpulse-only practitioner has no CMS
+                      profile, and an unmatched locationId has no centre page.
+                      Shown on past and cancelled cards too; both are
+                      read-only, and "who did I see in March" is a real question.
+                    */}
+                    {profileId || centre ? (
+                      <View style={styles.links}>
+                        {profileId ? (
+                          <Pressable
+                            onPress={() => router.push(`/doctor/${profileId}`)}
+                            accessibilityRole="button"
+                            hitSlop={8}
+                            style={styles.linkBtn}
+                          >
+                            <User
+                              size={12}
+                              color={PALETTE.deepBlue}
+                              strokeWidth={2.4}
+                            />
+                            <Txt variant="helperSm" color={PALETTE.deepBlue}>
+                              {t('ui.booking.viewProfile')}
+                            </Txt>
+                          </Pressable>
+                        ) : null}
+                        {centre ? (
+                          <Pressable
+                            onPress={() => router.push(`/centre/${centre.id}`)}
+                            accessibilityRole="button"
+                            hitSlop={8}
+                            style={styles.linkBtn}
+                          >
+                            <MapPin
+                              size={12}
+                              color={PALETTE.deepBlue}
+                              strokeWidth={2.4}
+                            />
+                            <Txt variant="helperSm" color={PALETTE.deepBlue}>
+                              {t('ui.booking.centreDetails')}
+                            </Txt>
+                          </Pressable>
+                        ) : null}
+                      </View>
+                    ) : null}
+
+                    <View style={styles.actions}>
+                      {bucket === 'upcoming' ? (
+                        <>
+                          <Btn
+                            label={t('ui.booking.directions')}
+                            compact
+                            block={false}
+                            onPress={() => directions(appt)}
+                            icon={
+                              <Navigation
+                                size={13}
+                                color={PALETTE.white}
+                                strokeWidth={2.2}
+                              />
+                            }
+                            style={styles.action}
+                          />
+                          <Btn
+                            label={t('ui.activity.reschedule')}
+                            variant="secondary"
+                            compact
+                            block={false}
+                            onPress={() => setRescheduling(appt)}
+                            style={styles.action}
+                          />
+                          <Btn
+                            label={t('ui.common.cancel')}
+                            variant="secondary"
+                            compact
+                            block={false}
+                            loading={cancellingId === appt.appointmentId}
+                            // Every row is disabled while one is cancelling: the
+                            // list reloads afterwards, so letting a second row be
+                            // tapped mid-flight would act on a stale list.
+                            disabled={
+                              cancellingId !== null &&
+                              cancellingId !== appt.appointmentId
+                            }
+                            onPress={() => confirmCancel(appt)}
+                            style={styles.action}
+                          />
+                        </>
+                      ) : bucket === 'past' ? (
                         <Btn
-                          label={t('ui.booking.directions')}
+                          label={t('ui.activity.bookAgain')}
+                          variant="secondary"
                           compact
                           block={false}
                           onPress={() => directions(appt)}
-                          icon={
-                            <Navigation
-                              size={13}
-                              color={PALETTE.white}
-                              strokeWidth={2.2}
-                            />
-                          }
                           style={styles.action}
                         />
-                        <Btn
-                          label={t('ui.activity.reschedule')}
-                          variant="secondary"
-                          compact
-                          block={false}
-                          onPress={() => setRescheduling(appt)}
-                          style={styles.action}
-                        />
-                        <Btn
-                          label={t('ui.common.cancel')}
-                          variant="secondary"
-                          compact
-                          block={false}
-                          loading={cancellingId === appt.appointmentId}
-                          // Every row is disabled while one is cancelling: the
-                          // list reloads afterwards, so letting a second row be
-                          // tapped mid-flight would act on a stale list.
-                          disabled={
-                            cancellingId !== null &&
-                            cancellingId !== appt.appointmentId
-                          }
-                          onPress={() => confirmCancel(appt)}
-                          style={styles.action}
-                        />
-                      </>
-                    ) : bucket === 'past' ? (
-                      <Btn
-                        label={t('ui.activity.bookAgain')}
-                        variant="secondary"
-                        compact
-                        block={false}
-                        onPress={() => directions(appt)}
-                        style={styles.action}
-                      />
-                    ) : null}
-                  </View>
-                </Card>
-              ))
+                      ) : null}
+                    </View>
+                  </Card>
+                );
+              })
             )}
           </>
         ) : (
@@ -502,12 +583,28 @@ const styles = StyleSheet.create({
     marginTop: SPACE.xxs,
   },
   avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    // 28px circle before, which was enough for two letters and far too small
+    // for a face. Same rounded square the booking screens use for a portrait.
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.cardSm,
     backgroundColor: SURFACE.tint,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  photo: { width: '100%', height: '100%' },
+  links: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACE.md,
+    marginTop: SPACE.xxs,
+  },
+  linkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 30,
   },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: SPACE.xs },
   actions: {

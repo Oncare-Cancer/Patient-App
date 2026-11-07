@@ -1,7 +1,7 @@
 import React from 'react';
 import { Modal, View, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Camera, Images, FileText, FolderOpen } from 'lucide-react-native';
+import { Camera, Images, FileText } from 'lucide-react-native';
 import { Txt } from './Txt';
 import { useT } from '@/contexts/LanguageContext';
 import {
@@ -27,7 +27,6 @@ export function AttachSheet({
   onCamera,
   onGallery,
   onDocument,
-  onRecords,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -35,7 +34,6 @@ export function AttachSheet({
   onGallery: () => void;
   onDocument: () => void;
   /** Omitted where picking from Records makes no sense. */
-  onRecords?: () => void;
 }) {
   const t = useT();
   const insets = useSafeAreaInsets();
@@ -44,16 +42,8 @@ export function AttachSheet({
     { key: 'camera', Icon: Camera, label: t('ui.upload.camera'), run: onCamera },
     { key: 'gallery', Icon: Images, label: t('ui.upload.gallery'), run: onGallery },
     { key: 'pdf', Icon: FileText, label: t('ui.upload.document'), run: onDocument },
-    ...(onRecords
-      ? [
-          {
-            key: 'records',
-            Icon: FolderOpen,
-            label: t('ui.upload.fromRecords'),
-            run: onRecords,
-          },
-        ]
-      : []),
+    // No "from my records" row: see the note in UploadField. The Documents
+    // tab cannot hand a file back to a form.
   ];
 
   return (

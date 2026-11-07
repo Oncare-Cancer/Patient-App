@@ -483,10 +483,7 @@ export default function Book() {
 
         {step === 3 && doctor && slot ? (
           <ReviewStep
-            doctorName={doctor.name}
-            doctorSpeciality={
-              doctor.speciality ? String(doctor.speciality) : undefined
-            }
+            doctor={doctor}
             visitLabel={visitLabel}
             whenLabel={formatWhen(slot)}
             centreLabel={centreLabel}
@@ -494,6 +491,17 @@ export default function Book() {
             onEdit={() => setStep(0)}
             onConfirm={confirm}
             submitting={submitting}
+            // Each offered only where there is something to open: a
+            // Docpulse-only doctor has no CMS profile, and a centre that could
+            // not be matched has no detail page.
+            onViewProfile={
+              doctor.hasProfile ? () => setProfileDoctor(doctor) : undefined
+            }
+            onCentreDetails={
+              bookedCentre
+                ? () => router.push(`/centre/${bookedCentre.id}`)
+                : undefined
+            }
           />
         ) : null}
 
@@ -509,6 +517,11 @@ export default function Book() {
             onHome={() => router.replace('/(tabs)')}
             onDirections={
               bookedCentre ? () => openDirections(bookedCentre) : undefined
+            }
+            onCentreDetails={
+              bookedCentre
+                ? () => router.push(`/centre/${bookedCentre.id}`)
+                : undefined
             }
           />
         ) : null}

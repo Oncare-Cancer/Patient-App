@@ -265,6 +265,7 @@ export const en = {
     },
 
     booking: {
+      centreDetails: 'Centre details',
       title: 'Book appointment',
       stepCentre: 'Centre',
       stepDoctor: 'Doctor',

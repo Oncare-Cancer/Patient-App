@@ -46,20 +46,22 @@ export function CareBuddyCta({
         {subtitle ?? t('ui.explore.careBuddyBody')}
       </Txt>
 
+      {/*
+        Stacked, not side by side.
+        They shared a row at flex: 1 each, which gave "Request a callback" half
+        the card width minus the pill's own padding — and since a Btn label is
+        deliberately one line, it rendered as "Request a cal...". Hindi is
+        longer still ("कॉल बैक का अनुरोध करें"), so widening the row or
+        shrinking the padding only moves the point at which it breaks. Full
+        width cannot truncate in any language.
+      */}
       <View style={styles.actions}>
-        <Btn
-          label={t('ui.explore.bookNow')}
-          onPress={onBook}
-          block={false}
-          style={styles.action}
-        />
+        <Btn label={t('ui.explore.bookNow')} onPress={onBook} />
         <Btn
           label={t('ui.explore.requestCallback')}
           variant="secondary"
           onDark
           onPress={onRequest}
-          block={false}
-          style={styles.action}
         />
       </View>
     </LinearGradient>
@@ -75,9 +77,7 @@ const styles = StyleSheet.create({
   },
   sub: { marginTop: SPACE.xxs, maxWidth: 320, alignSelf: 'center' },
   actions: {
-    flexDirection: 'row',
     gap: SPACE.sm,
     marginTop: SPACE.lg,
   },
-  action: { flex: 1 },
 });

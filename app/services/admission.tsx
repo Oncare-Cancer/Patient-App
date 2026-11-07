@@ -191,8 +191,6 @@ export default function Admission() {
             files={attach.files}
             onPick={attach.openSheet}
             onRemove={attach.remove}
-            pickFromRecordsLabel={t('ui.homeCare.pickFromRecords')}
-            onPickFromRecords={() => router.push('/(tabs)/documents')}
           />
         )}
 
@@ -254,7 +252,6 @@ export default function Admission() {
         onCamera={attach.fromCamera}
         onGallery={attach.fromGallery}
         onDocument={attach.fromDocument}
-        onRecords={() => router.push('/(tabs)/documents')}
       />
 
       <GuestDetailsSheet {...guestSheet} />

@@ -26,6 +26,17 @@ export type Appointment = {
   locationId?: string;
   locationAlias?: string;
   locationName?: string;
+  /**
+   * The doctor's CMS record, joined server-side by name.
+   *
+   * Docpulse carries only `practitionerName`, which is why this card could
+   * previously show nothing but initials. All three are empty strings for a
+   * practitioner the CMS has no record of, so each is treated as absent.
+   */
+  doctorImg?: string;
+  doctorSpeciality?: string;
+  /** The CMS id to open a profile with. Empty when there is no profile. */
+  doctorProfileId?: string;
   [key: string]: unknown;
 };
 
@@ -115,6 +126,32 @@ export function centreName(appt: Appointment): string {
 
 export function doctorName(appt: Appointment): string {
   return String(appt.practitionerName ?? '').trim();
+}
+
+/** The doctor's photo URL, or undefined when the CMS has none. */
+export function doctorPhoto(appt: Appointment): string | undefined {
+  return String(appt.doctorImg ?? '').trim() || undefined;
+}
+
+export function doctorSpeciality(appt: Appointment): string | undefined {
+  return String(appt.doctorSpeciality ?? '').trim() || undefined;
+}
+
+/** The CMS profile id, or undefined when there is no profile to open. */
+export function doctorProfileId(appt: Appointment): string | undefined {
+  return String(appt.doctorProfileId ?? '').trim() || undefined;
+}
+
+/** "RS" from "Rakesh Sharma" — the fallback when there is no photo. */
+export function doctorInitials(appt: Appointment): string {
+  return doctorName(appt)
+    .replace(/^Dr\.?\s*/i, '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase();
 }
 
 /** "Fri, 6 Nov · 2:15 PM" */

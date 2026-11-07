@@ -175,8 +175,6 @@ export default function SecondOpinion() {
             files={attach.files}
             onPick={attach.openSheet}
             onRemove={attach.remove}
-            pickFromRecordsLabel={t('ui.homeCare.pickFromRecords')}
-            onPickFromRecords={() => router.push('/(tabs)/documents')}
           />
         )}
 
@@ -237,7 +235,6 @@ export default function SecondOpinion() {
         onCamera={attach.fromCamera}
         onGallery={attach.fromGallery}
         onDocument={attach.fromDocument}
-        onRecords={() => router.push('/(tabs)/documents')}
       />
 
       <GuestDetailsSheet {...guestSheet} />

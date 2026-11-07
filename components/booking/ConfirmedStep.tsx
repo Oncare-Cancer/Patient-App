@@ -1,5 +1,5 @@
 import { View, Pressable, Image, StyleSheet } from 'react-native';
-import { Check, MapPin, User } from 'lucide-react-native';
+import { Building2, Check, MapPin, User } from 'lucide-react-native';
 import { Btn, Card, Txt } from '@/components/ui';
 import { useT } from '@/contexts/LanguageContext';
 import type { Practitioner } from '@/services/booking';
@@ -33,6 +33,7 @@ export function ConfirmedStep({
   onViewAppointments,
   onHome,
   onDirections,
+  onCentreDetails,
 }: {
   bookingId: string;
   doctor: Practitioner;
@@ -44,6 +45,8 @@ export function ConfirmedStep({
   onHome: () => void;
   /** Omitted when the booking's centre could not be matched to an address. */
   onDirections?: () => void;
+  /** Omitted for the same reason — no matched centre, no detail page. */
+  onCentreDetails?: () => void;
 }) {
   const t = useT();
 
@@ -150,17 +153,43 @@ export function ConfirmedStep({
 
         {/* Offered only when the centre was matched, so the button always
             opens the right place rather than a hopeful search. */}
-        {onDirections ? (
-          <Pressable
-            onPress={onDirections}
-            accessibilityRole="button"
-            accessibilityLabel={t('ui.booking.directions')}
-            hitSlop={8}
-            style={({ pressed }) => [styles.directions, pressed && styles.pressed]}
-          >
-            <MapPin size={14} color={PALETTE.midnight} strokeWidth={2.4} />
-            <Txt variant="helper">{t('ui.booking.directions')}</Txt>
-          </Pressable>
+        {/*
+          Both offered only when the centre was matched to a record, so
+          neither can open the wrong place or a page that does not exist.
+        */}
+        {onDirections || onCentreDetails ? (
+          <View style={styles.centreActions}>
+            {onDirections ? (
+              <Pressable
+                onPress={onDirections}
+                accessibilityRole="button"
+                accessibilityLabel={t('ui.booking.directions')}
+                hitSlop={8}
+                style={({ pressed }) => [
+                  styles.centreBtn,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <MapPin size={14} color={PALETTE.midnight} strokeWidth={2.4} />
+                <Txt variant="helper">{t('ui.booking.directions')}</Txt>
+              </Pressable>
+            ) : null}
+            {onCentreDetails ? (
+              <Pressable
+                onPress={onCentreDetails}
+                accessibilityRole="button"
+                accessibilityLabel={t('ui.booking.centreDetails')}
+                hitSlop={8}
+                style={({ pressed }) => [
+                  styles.centreBtn,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Building2 size={14} color={PALETTE.midnight} strokeWidth={2.4} />
+                <Txt variant="helper">{t('ui.booking.centreDetails')}</Txt>
+              </Pressable>
+            ) : null}
+          </View>
         ) : null}
       </Card>
 
@@ -232,17 +261,21 @@ const styles = StyleSheet.create({
     gap: SPACE.sm,
   },
   rowLabel: { width: 76 },
-  directions: {
+  centreActions: {
+    flexDirection: 'row',
+    gap: SPACE.xs,
+    marginTop: SPACE.xxs,
+  },
+  centreBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACE.xs,
-    alignSelf: 'stretch',
     minHeight: 40,
     borderRadius: RADIUS.pill,
     borderWidth: 1.2,
     borderColor: SURFACE.border,
-    marginTop: SPACE.xxs,
   },
   pressed: { opacity: 0.86 },
   rowValue: { flex: 1, textAlign: 'right' },
