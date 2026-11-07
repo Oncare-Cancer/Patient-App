@@ -209,7 +209,7 @@ export default function HomeScreen() {
         </View>
 
         <Pressable
-          onPress={() => router.push('/(tabs)/book')}
+          onPress={() => router.push('/search')}
           accessibilityRole="search"
           accessibilityLabel={t('ui.home.searchPlaceholder')}
           style={styles.searchBox}

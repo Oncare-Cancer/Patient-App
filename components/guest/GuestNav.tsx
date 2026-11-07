@@ -15,7 +15,6 @@ import { LoginSheet } from '@/components/guest/LoginSheet';
  */
 /** Where each locked tab lands once the patient is signed in. */
 const TAB_PATH: Partial<Record<TabKey, string>> = {
-  activity: '/(tabs)/appointments',
   records: '/(tabs)/documents',
   profile: '/(tabs)/profile',
 };
@@ -33,6 +32,12 @@ export function GuestNav({ active }: { active: TabKey }) {
     // the point of confirming a booking.
     if (key === 'book') {
       router.push('/guest/doctors');
+      return;
+    }
+    // Explore reads the token-free catalogue endpoints, so a guest gets the
+    // full screen rather than a login prompt.
+    if (key === 'explore') {
+      router.push('/(tabs)/explore');
       return;
     }
     setLocked(key);

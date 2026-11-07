@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import {
   Bell,
+  CalendarDays,
   ChevronRight,
   CircleHelp,
   Globe,
@@ -144,6 +145,15 @@ export default function Profile() {
             title={t('ui.profile.personalDetails')}
             hint={t('ui.profile.personalDetailsHint')}
             onPress={() => router.push('/profile/personal')}
+          />
+          {/* Activity moved out of the bottom bar to here: a patient's own
+              appointments and requests belong with their records, and the tab
+              it occupied now holds Explore. */}
+          <Row
+            Icon={CalendarDays}
+            title={t('ui.nav.activity')}
+            hint={t('ui.profile.activityHint')}
+            onPress={() => router.push('/(tabs)/appointments')}
           />
         </Group>
 

@@ -272,11 +272,15 @@ export default function LoginScreen() {
 
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        // 'height' on Android rather than nothing: with the default
+        // adjustResize the view shrinks, but the ScrollView still needs to be
+        // told its available height changed for the focused field to scroll up.
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
           showsVerticalScrollIndicator={false}
         >
           {step === 'identifier' ? (

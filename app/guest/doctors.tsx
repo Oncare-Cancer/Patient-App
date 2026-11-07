@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Image, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Search, Stethoscope } from 'lucide-react-native';
 import {
@@ -19,7 +19,7 @@ import { LoginSheet } from '@/components/guest/LoginSheet';
 import { useT } from '@/contexts/LanguageContext';
 import { useDebounced } from '@/hooks/useDebounced';
 import { doctorApi, type Doctor } from '@/services/doctors';
-import { PALETTE, SPACE, SURFACE, TEXT } from '@/constants/theme';
+import { PALETTE, RADIUS, SPACE, SURFACE, TEXT } from '@/constants/theme';
 
 /**
  * Doctor browse for guests.
@@ -121,16 +121,27 @@ export default function GuestDoctors() {
           shown.map((d) => (
             <Card key={d.id} style={styles.card}>
               <View style={styles.row}>
+                {/* The real CMS portrait. Every active doctor has one, so the
+                    initials are only a fallback now. */}
                 <View style={styles.avatar}>
-                  <Txt variant="helper" script="latin" color={PALETTE.midnight}>
-                    {d.name
-                      .replace(/^Dr\.?\s*/i, '')
-                      .split(/\s+/)
-                      .slice(0, 2)
-                      .map((p) => p[0])
-                      .join('')
-                      .toUpperCase()}
-                  </Txt>
+                  {d.img ? (
+                    <Image
+                      source={{ uri: d.img }}
+                      style={styles.photo}
+                      resizeMode="cover"
+                      accessibilityLabel={d.imgAlt ?? d.name}
+                    />
+                  ) : (
+                    <Txt variant="helper" script="latin" color={PALETTE.midnight}>
+                      {d.name
+                        .replace(/^Dr\.?\s*/i, '')
+                        .split(/\s+/)
+                        .slice(0, 2)
+                        .map((p) => p[0])
+                        .join('')
+                        .toUpperCase()}
+                    </Txt>
+                  )}
                 </View>
                 <View style={styles.meta}>
                   {/* Doctor names and specialities stay Latin. */}
@@ -208,13 +219,17 @@ const styles = StyleSheet.create({
     gap: SPACE.sm,
   },
   avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    // Matches the booking flow's card: a real portrait needs the room, and a
+    // small circular mask crops the top of the head.
+    width: 64,
+    height: 64,
+    borderRadius: RADIUS.cardSm,
     backgroundColor: SURFACE.tint,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
+  photo: { width: '100%', height: '100%' },
   meta: {
     flex: 1,
   },

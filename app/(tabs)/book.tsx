@@ -15,6 +15,7 @@ import {
   getLocations,
   getPractitioners,
   getVisitTypes,
+  findNextFreeSlot,
   getBookingSlots,
   createAppointment,
   locationOf,
@@ -42,16 +43,49 @@ import { NAV_CLEARANCE, SPACE, SURFACE } from '@/constants/theme';
 
 type Step = 0 | 1 | 2 | 3 | 4;
 
-/** Slot probing is N requests per doctor, so only a short list is worth it. */
+/**
+ * Loose name comparison, for matching a CMS doctor to a Docpulse practitioner.
+ *
+ * The two systems share no doctor id, so the name is the only join. Docpulse
+ * stores `firstName: "S K", lastName: "Sahoo"` while the CMS stores
+ * `"Dr. S K Sahoo"`, so the honorific and all punctuation are discarded.
+ */
+function sameName(a: string, b: string): boolean {
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/\bdr\.?\b/g, '')
+      .replace(/[^a-z]/g, '');
+  return norm(a) === norm(b) && norm(a).length > 0;
+}
+
+/** Days of lookahead when finding a doctor's next available slot. */
+const NEXT_SLOT_LOOKAHEAD_DAYS = 3;
+/** How many doctors are probed at once. */
+const SLOT_PROBE_CONCURRENCY = 4;
+
 
 export default function Book() {
   const t = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { patient } = useAuth();
+  /**
+   * Incoming preselection.
+   *
+   * Two sources share this: the guest-login resume (B6), and the "Book" button
+   * on a centre or doctor page.
+   *
+   * `centreId` is a DOCPULSE locationId, because that is what the booking APIs
+   * take. `doctorName` exists because a doctor page cannot supply a Docpulse
+   * practitioner id — the CMS and Docpulse share no doctor id — so the doctor
+   * is matched by name once this centre's practitioners load.
+   */
   const resume = useLocalSearchParams<{
     resumeCentreId?: string;
     resumeDoctorId?: string;
+    centreId?: string;
+    doctorName?: string;
     resumeVisitType?: string;
     resumeDateTime?: string;
   }>();
@@ -65,6 +99,8 @@ export default function Book() {
 
   const [doctors, setDoctors] = useState<Practitioner[]>([]);
   const [loadingDoctors, setLoadingDoctors] = useState(false);
+  /** practitionerId -> "Today 2:00 PM". Absent means not yet known. */
+  const [nextFree, setNextFree] = useState<Record<string, string>>({});
   const [doctor, setDoctor] = useState<Practitioner | null>(null);
   const [profileDoctor, setProfileDoctor] = useState<Practitioner | null>(null);
 
@@ -77,7 +113,6 @@ export default function Book() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slot, setSlot] = useState<string | null>(null);
 
-  const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [bookingId, setBookingId] = useState('');
 
@@ -96,6 +131,7 @@ export default function Book() {
   const loadDoctors = useCallback(
     async (loc: Location) => {
       setLoadingDoctors(true);
+      setNextFree({});
       try {
         const list = (await getPractitioners(loc.id)).map(practitionerOf);
         setDoctors(list);
@@ -109,15 +145,58 @@ export default function Book() {
     [t]
   );
 
-  /*
-   * The per-doctor "next free slot" prefetch was removed.
+  /**
+   * Fills in each doctor's next available slot.
    *
-   * It walked up to seven days of slots for every doctor at the centre, so
-   * opening the doctor step fired dozens of sequential Docpulse calls to
-   * populate a chip the patient was only skimming past — and the time was
-   * already stale by the time it rendered. The doctor card now shows a plain
-   * "Next available" label and the real times load on the next step.
+   * This is a real Docpulse lookup, so the card shows an actual time rather
+   * than a vague label. It is kept cheap in three ways, because a naive version
+   * is dozens of sequential calls just to render a list the patient is
+   * skimming:
+   *
+   *  - 3 days of lookahead, not 7. A doctor with nothing free for three days
+   *    reads as "call us" anyway, and the slot step shows the full picture.
+   *  - CONCURRENCY lanes in parallel rather than strictly one doctor at a time.
+   *  - cancelled on unmount / centre change, so switching centres does not
+   *    leave the previous centre's probes running.
    */
+  useEffect(() => {
+    if (!centre || doctors.length === 0) return;
+
+    let cancelled = false;
+    const queue = [...doctors];
+
+    const worker = async () => {
+      while (!cancelled) {
+        const d = queue.shift();
+        if (!d) return;
+        try {
+          const types = await getVisitTypes(centre.id, d.id);
+          const firstType = types[0];
+          if (!firstType) continue;
+
+          const free = await findNextFreeSlot({
+            locationId: centre.id,
+            practitionerId: d.id,
+            visitTypeName: firstType,
+            days: NEXT_SLOT_LOOKAHEAD_DAYS,
+          });
+          if (free && !cancelled) {
+            setNextFree((prev) => ({ ...prev, [d.id]: free.label }));
+          }
+        } catch {
+          // A doctor whose slots cannot be read simply shows no time.
+        }
+      }
+    };
+
+    void Promise.all(
+      Array.from({ length: SLOT_PROBE_CONCURRENCY }, () => worker())
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [centre, doctors]);
 
   /* ------------------------------------------------------------ visit types */
 
@@ -182,30 +261,48 @@ export default function Book() {
   useEffect(() => {
     if (resumedRef.current) return;
     if (locations.length === 0) return;
-    if (!resume.resumeDoctorId && !resume.resumeCentreId) return;
+
+    const wantCentreId = resume.resumeCentreId || resume.centreId;
+    const wantDoctorId = resume.resumeDoctorId;
+    const wantDoctorName = resume.doctorName;
+
+    if (!wantCentreId && !wantDoctorId && !wantDoctorName) return;
 
     resumedRef.current = true;
 
     (async () => {
-      const loc =
-        locations.find((l) => l.id === resume.resumeCentreId) ?? locations[0];
-      if (!loc) return;
-      setCentre(loc);
+      const match = wantCentreId
+        ? locations.find((l) => l.id === wantCentreId)
+        : null;
 
-      const list = (await getPractitioners(loc.id).catch(() => [])).map(
+      // Without a known centre there is nothing to preselect — the patient
+      // picks one and the doctor-name match below still applies afterwards.
+      if (!match) {
+        setStep(0);
+        return;
+      }
+      setCentre(match);
+
+      const list = (await getPractitioners(match.id).catch(() => [])).map(
         practitionerOf
       );
       setDoctors(list);
 
-      const doc = list.find((d) => d.id === resume.resumeDoctorId);
+      // By id when resuming, by name when arriving from a doctor page.
+      const doc =
+        (wantDoctorId && list.find((d) => d.id === wantDoctorId)) ||
+        (wantDoctorName && list.find((d) => sameName(d.name, wantDoctorName))) ||
+        null;
+
       if (!doc) {
-        // Doctor no longer at this centre — leave them on the doctor step.
+        // Centre is known but the doctor is not bookable here (or was not
+        // specified) — land on the doctor step with the list already loaded.
         setStep(1);
         return;
       }
 
       setDoctor(doc);
-      await loadVisitTypes(loc, doc);
+      await loadVisitTypes(match, doc);
       if (resume.resumeVisitType) setVisitType(resume.resumeVisitType);
       setStep(2);
     })();
@@ -329,6 +426,7 @@ export default function Book() {
             doctors={doctors}
             loading={loadingDoctors}
             selected={doctor}
+            nextFree={nextFree}
             onViewProfile={setProfileDoctor}
             onSelect={(d) => {
               setDoctor(d);
@@ -369,8 +467,6 @@ export default function Book() {
             whenLabel={formatWhen(slot)}
             centreLabel={centreLabel}
             patientLabel={patientLabel}
-            reason={reason}
-            onReason={setReason}
             onEdit={() => setStep(0)}
             onConfirm={confirm}
             submitting={submitting}
@@ -380,9 +476,11 @@ export default function Book() {
         {step === 4 && doctor && slot ? (
           <ConfirmedStep
             bookingId={bookingId}
-            doctorName={doctor.name}
+            doctor={doctor}
             whenLabel={formatWhen(slot)}
+            visitLabel={visitLabel}
             centreLabel={centreLabel}
+            onViewProfile={() => setProfileDoctor(doctor)}
             onViewAppointments={() => router.replace('/(tabs)/appointments')}
             onHome={() => router.replace('/(tabs)')}
           />

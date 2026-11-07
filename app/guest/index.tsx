@@ -155,7 +155,7 @@ export default function GuestHome() {
             {t('ui.guest.browseNote')}
           </Txt>
           <Pressable
-            onPress={() => router.push('/guest/doctors')}
+            onPress={() => router.push('/search')}
             accessibilityRole="search"
             style={styles.searchBox}
           >

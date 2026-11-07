@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, Pressable, Linking, Platform } from 'react-native';
+import { useRouter } from 'expo-router';
 import { MapPin, Navigation, PhoneCall, ChevronRight } from 'lucide-react-native';
 import {
   Card,
@@ -25,6 +26,7 @@ import { PALETTE, SPACE, SURFACE, TEXT, TOUCH_MIN } from '@/constants/theme';
  */
 export default function GuestCentres() {
   const t = useT();
+  const router = useRouter();
   const [centres, setCentres] = useState<Centre[]>([]);
   const [city, setCity] = useState<string | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -105,7 +107,15 @@ export default function GuestCentres() {
 
             {shown.map((c) => (
               <Card key={c.id} style={styles.card}>
-                <View style={styles.cardTop}>
+                {/* The heading row opens the centre's own page; the Directions
+                    and Call actions below stay on this screen so a guest who
+                    only wants the address does not have to navigate. */}
+                <Pressable
+                  onPress={() => router.push(`/centre/${c.id}`)}
+                  accessibilityRole="button"
+                  accessibilityLabel={c.name}
+                  style={styles.cardTop}
+                >
                   <View style={styles.pin}>
                     <MapPin size={15} color={PALETTE.purple} strokeWidth={2.2} />
                   </View>
@@ -119,7 +129,7 @@ export default function GuestCentres() {
                       "use my location" was removed, so there is no distance to
                       show. The row opens the centre's detail page instead. */}
                   <ChevronRight size={16} color={TEXT.muted} strokeWidth={2.2} />
-                </View>
+                </Pressable>
 
                 <Txt
                   variant="helperSm"

@@ -39,9 +39,56 @@ export const en = {
     nav: {
       home: 'Home',
       activity: 'Activity',
+      /** Replaced Activity in the bottom bar; Activity moved into Profile. */
+      explore: 'Explore',
       book: 'Book',
       records: 'Records',
       profile: 'Profile',
+    },
+
+    explore: {
+      title: 'Explore',
+      subtitle: 'Our centres and specialists',
+      tabCentres: 'Centres',
+      tabDoctors: 'Doctors',
+      searchCentres: 'Search by centre or area',
+      searchDoctors: 'Search doctor or speciality',
+      noCentres: 'No centres found',
+      noDoctors: 'No doctors found',
+      doctorsHere: 'Doctors at this centre',
+      aboutCentre: 'About this centre',
+      openingHours: 'Opening hours',
+      bookHere: 'Book at this centre',
+      bookWith: 'Book with this doctor',
+      viewProfile: 'View profile',
+      about: 'About',
+      expertise: 'Areas of expertise',
+      languages: 'Languages',
+      qualifications: 'Qualifications',
+      practisesAt: 'Practises at',
+      centreCount: '{{count}} centres',
+      doctorCount: '{{count}} doctors',
+      ourServices: 'Our services',
+      patientReviews: 'Patient reviews',
+      reviewsNote: 'Verified reviews from Google — real experiences from our patients.',
+      readMore: 'Read more',
+      starsOf5: '{{stars}} out of 5 stars',
+      faqTitle: 'Frequently asked questions',
+      careBuddyTitle: 'Need guidance? Talk to our care buddy',
+      careBuddyBody: 'Get a free cost estimate for your treatment plan.',
+      bookNow: 'Book now',
+      requestCallback: 'Request a callback',
+      virtualTour: 'Virtual tour',
+      watchOnYoutube: 'Watch on YouTube',
+      publications: 'Publications & research',
+      professionalExperience: 'Professional experience',
+      awardsTitle: 'Awards & recognition',
+      educationTitle: 'Education & qualifications',
+      advancedTraining: 'Advanced training',
+      bookWithDoctor: 'Book with {{name}}',
+      estimateFor: 'Get a free cost estimate from {{name}}.',
+      doctorsAtCentre: '{{count}} doctors available to book',
+      noDoctorsHere: 'No doctors listed for this centre yet',
     },
 
     upload: {
@@ -143,7 +190,11 @@ export const en = {
       hospitalId: 'Hospital ID',
       bookConsultation: 'Book a consultation',
       bookSubtitle: 'In-centre or video · {{count}} centres',
-      searchPlaceholder: 'Search doctor, cancer type or centre',
+      searchPlaceholder: 'Search doctor or centre',
+      searchTitle: 'Search',
+      searchHint:
+        'Search {{doctors}} doctors and {{centres}} centres by name, speciality or area.',
+      searchNoResults: 'Nothing matched that search',
       nearest: 'Nearest',
       yourNextStep: 'Your next step',
       viewAll: 'View all',
@@ -318,6 +369,7 @@ export const en = {
       // the design but have no API yet, so the rows say so rather than leading
       // nowhere.
       comingSoon: 'Coming soon',
+      activityHint: 'Your appointments and requests',
       logoutTitle: 'Logout of Oncare Plus?',
       logoutConfirm: 'You will need your OTP to sign in again.',
       staySignedIn: 'Stay signed in',
@@ -383,6 +435,13 @@ export const en = {
       searchAddHint: 'Pick medicines from our list yourself',
       searchPlaceholder: 'Search medicine, e.g. capecitabine',
       add: 'Add',
+      // NOT IN PDF — the mockups show a search box and nothing under it, which
+      // leaves the screen looking broken until the patient types.
+      commonlyOrdered: 'Commonly ordered at Oncare Pharmacy',
+      commonlyOrderedHint:
+        'Grouped by medicine, most stocked first. Search a brand name to see a specific pack.',
+      brandsAvailable: '{{count}} brands',
+      addAnother: 'Add again',
       viewCart: 'View cart',
       itemCount: '{{count}} item',
       itemCountPlural: '{{count}} items',
@@ -595,6 +654,12 @@ export const en = {
   legal: {
     approxPriceNote:
       'Approx. price based on your search. For actual pricing, please login and upload your medical documents.',
+    // Shown instead of the above once the patient is logged in. The price is
+    // still approximate — the catalogue number is not a quote — but telling a
+    // logged-in patient to log in is a bug, and "upload your documents" is
+    // already what the screen itself asks for.
+    approxPriceNoteLoggedIn:
+      'Approx. price from our catalogue. Our team confirms the final price after reviewing your prescription and reports.',
     consentSecondOpinion:
       'I agree to share my reports with Oncare doctors for review.',
     consentCallBack:

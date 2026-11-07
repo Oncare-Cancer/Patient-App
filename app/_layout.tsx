@@ -108,18 +108,29 @@ function RootLayoutNav() {
         // Wait for authentication to load
         if (loading) return;
 
-        // Handle routing based on auth state
-        const inAuthGroup = segments[0] === '(tabs)';
-        // Guest mode (section 06) is reachable without a session, so it joins
-        // login as a route a signed-out patient is allowed to sit on. Without
-        // this, "Explore without login" bounces straight back to login.
-        const publicRoute = segments[0] === 'login' || segments[0] === 'guest';
+        /*
+         * Routing by auth state.
+         *
+         * Only two rules, and they are deliberately expressed in terms of the
+         * SIGNED-OUT routes rather than the tab group:
+         *
+         *   no session  + not on a signed-out route -> go to login
+         *   has session + on a signed-out route     -> go into the app
+         *
+         * The previous version redirected a signed-in patient whenever
+         * `segments[0] !== '(tabs)'`, which matched every stacked route the
+         * app pushes — /services/*, /profile/*, /centre/[id], /doctor/[id],
+         * /notifications. Opening any of them bounced straight back to Home,
+         * so Second Opinion, Order Medicines, Lab Test at Home, Admission,
+         * FAQs and the centre/doctor pages all looked broken when in fact they
+         * were simply unreachable.
+         */
+        const signedOutRoute =
+          segments[0] === 'login' || segments[0] === 'guest';
 
         if (!isAuthenticated || !patient) {
-          if (inAuthGroup || !publicRoute) {
-            router.replace('/login');
-          }
-        } else if (isAuthenticated && patient && !inAuthGroup) {
+          if (!signedOutRoute) router.replace('/login');
+        } else if (signedOutRoute) {
           router.replace('/(tabs)');
         }
       } catch (e) {

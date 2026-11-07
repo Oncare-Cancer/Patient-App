@@ -27,12 +27,14 @@ function activeTab(segment: string | undefined): TabKey {
       // Without this case Book fell through to the default and the bar
       // highlighted Home while the patient was on the booking flow.
       return 'book';
-    case 'appointments':
-      return 'activity';
+    case 'explore':
+      return 'explore';
     case 'documents':
       return 'records';
     case 'profile':
       return 'profile';
+    // `appointments` deliberately has no case: Activity is reached from
+    // Profile now, so no tab should light up while it is open.
     default:
       return 'home';
   }
@@ -53,8 +55,8 @@ export default function TabLayout() {
       case 'book':
         router.replace('/(tabs)/book');
         return;
-      case 'activity':
-        router.replace('/(tabs)/appointments');
+      case 'explore':
+        router.replace('/(tabs)/explore');
         return;
       case 'records':
         router.replace('/(tabs)/documents');
@@ -77,6 +79,7 @@ export default function TabLayout() {
       >
         <Tabs.Screen name="index" />
         <Tabs.Screen name="book" />
+        <Tabs.Screen name="explore" />
         <Tabs.Screen name="appointments" />
         <Tabs.Screen name="documents" />
         <Tabs.Screen name="profile" />

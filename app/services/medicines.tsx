@@ -23,12 +23,14 @@ import {
   UploadField,
 } from '@/components/ui';
 import { CartLine } from '@/components/services/CartLine';
+import { MedicineCard } from '@/components/services/MedicineCard';
 import { useAttachments } from '@/hooks/useAttachments';
 import { useDebounced } from '@/hooks/useDebounced';
 import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
 import { searchMedicines, type Medicine } from '@/services/catalog';
 import { createRequest, type RequestLine } from '@/services/requests';
+import { useDraftSync } from '@/hooks/useDraftSync';
 import { readPrescription, needsCarefulCheck } from '@/services/prescriptionAi';
 import { uploadFiles } from '@/services/upload';
 import { toastError } from '@/utils/toast';
@@ -65,7 +67,11 @@ export default function Medicines() {
   const { patient } = useAuth();
 
   const [step, setStep] = useState<Step>('choose');
-  const [mode, setMode] = useState<'upload' | 'search' | null>(null);
+  // Opens on the catalogue rather than on an empty screen. The two tiles are
+  // still the choice the PDF makes, but "Search & add" is the one that has
+  // something to show immediately, so it starts selected and the browse list
+  // below it is populated before the patient types anything.
+  const [mode, setMode] = useState<'upload' | 'search' | null>('search');
   const [lines, setLines] = useState<RequestLine[]>([]);
   const [reading, setReading] = useState(false);
   const [carefulCheck, setCarefulCheck] = useState(false);
@@ -80,22 +86,27 @@ export default function Medicines() {
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Persists the cart as it changes so the central team can see and
+  // follow up on carts that are never submitted.
+  useDraftSync('medicine', lines, submitting);
+
   const attach = useAttachments();
   const debounced = useDebounced(search, 350);
 
   /* ------------------------------------------------------------ search */
 
+  // No search term asks the backend for its default browse list — medicines
+  // grouped by drug, most-stocked first — instead of clearing the screen.
   useEffect(() => {
-    if (!debounced.trim()) {
-      setResults([]);
-      return;
-    }
+    if (mode !== 'search') return;
     setSearching(true);
-    searchMedicines({ search: debounced, limit: 20 })
+    searchMedicines({ search: debounced.trim() || undefined, limit: 20 })
       .then((page) => setResults(page.list))
       .catch(() => setResults([]))
       .finally(() => setSearching(false));
-  }, [debounced]);
+  }, [mode, debounced]);
+
+  const browsing = !debounced.trim();
 
   const addFromCatalog = (m: Medicine) => {
     setLines((prev) => {
@@ -288,35 +299,29 @@ export default function Medicines() {
                   <PriceNote />
                 </View>
 
+                {browsing ? (
+                  <View style={styles.browseHead}>
+                    <Txt variant="section">{t('ui.medicine.commonlyOrdered')}</Txt>
+                    <Txt variant="helperSm" color={TEXT.muted}>
+                      {t('ui.medicine.commonlyOrderedHint')}
+                    </Txt>
+                  </View>
+                ) : null}
+
                 {searching ? (
                   <SkeletonList count={4} lines={1} />
+                ) : results.length === 0 ? (
+                  <Txt variant="helperSm" color={TEXT.muted} center>
+                    {t('ui.records.empty')}
+                  </Txt>
                 ) : (
                   results.map((m) => (
-                    <Card key={m.id} tone="plain" style={styles.resultRow}>
-                      <View style={styles.flex}>
-                        <Txt variant="bodyMedium" script="latin" numberOfLines={2}>
-                          {m.displayName}
-                        </Txt>
-                        {m.packSize || m.genericName ? (
-                          <Txt
-                            variant="helperSm"
-                            color={TEXT.muted}
-                            script="latin"
-                            numberOfLines={1}
-                          >
-                            {m.packSize ?? m.genericName}
-                          </Txt>
-                        ) : null}
-                      </View>
-                      <ApproxPrice value={m.price} />
-                      <Btn
-                        label={t('ui.medicine.add')}
-                        variant="secondary"
-                        compact
-                        block={false}
-                        onPress={() => addFromCatalog(m)}
-                      />
-                    </Card>
+                    <MedicineCard
+                      key={m.id}
+                      medicine={m}
+                      inCart={lines.some((l) => l.catalogId === m.id)}
+                      onAdd={() => addFromCatalog(m)}
+                    />
                   ))
                 )}
               </View>
@@ -650,11 +655,9 @@ const styles = StyleSheet.create({
   priceNote: {
     marginVertical: SPACE.sm,
   },
-  resultRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACE.sm,
-    marginBottom: SPACE.xs,
+  browseHead: {
+    gap: 2,
+    marginBottom: SPACE.sm,
   },
   aiCard: {
     flexDirection: 'row',

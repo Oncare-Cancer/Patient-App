@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { Modal, View, Pressable, StyleSheet } from 'react-native';
+import {
+  Modal,
+  View,
+  Pressable,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhoneCall } from 'lucide-react-native';
 import { Btn, Field, Txt } from '@/components/ui';
@@ -54,59 +61,80 @@ export function CallbackSheet({
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <Pressable
-        style={styles.backdrop}
-        onPress={onClose}
-        accessibilityLabel={t('ui.common.cancel')}
-      />
+      {/*
+        The sheet is lifted above the keyboard.
 
-      <View style={[styles.sheet, { paddingBottom: insets.bottom + SPACE.lg }]}>
-        <View style={styles.badge}>
-          <PhoneCall size={22} color={PALETTE.white} strokeWidth={2.2} />
-        </View>
-
-        <Txt variant="title" center>
-          {t('ui.guest.callBackTitle')}
-        </Txt>
-
-        {message ? (
-          <Txt variant="body" color={TEXT.secondary} center style={styles.message}>
-            {message}
-          </Txt>
-        ) : null}
-
-        <Field
-          label={t('ui.guest.yourName')}
-          placeholder={t('ui.guest.fullName')}
-          value={name}
-          onChangeText={setName}
-          autoFocus
-          autoCapitalize="words"
-          returnKeyType="send"
-          onSubmitEditing={submit}
-          containerStyle={styles.field}
-        />
-
-        <Btn
-          label={t('ui.guest.requestCallBack')}
-          onPress={submit}
-          loading={submitting}
-          disabled={!name.trim()}
-        />
-        <Btn
-          label={t('ui.common.cancel')}
-          variant="secondary"
+        The name field autofocuses, so without this the keyboard covered the
+        sheet the moment it opened — the title, the field and the submit button
+        were all behind it.
+      */}
+      <KeyboardAvoidingView
+        style={styles.fill}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <Pressable
+          style={styles.backdrop}
           onPress={onClose}
-          style={styles.cancel}
+          accessibilityLabel={t('ui.common.cancel')}
         />
-      </View>
+
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + SPACE.lg }]}>
+          <View style={styles.badge}>
+            <PhoneCall size={22} color={PALETTE.white} strokeWidth={2.2} />
+          </View>
+
+          <Txt variant="title" center>
+            {t('ui.guest.callBackTitle')}
+          </Txt>
+
+          {message ? (
+            <Txt
+              variant="body"
+              color={TEXT.secondary}
+              center
+              style={styles.message}
+            >
+              {message}
+            </Txt>
+          ) : null}
+
+          <Field
+            label={t('ui.guest.yourName')}
+            placeholder={t('ui.guest.fullName')}
+            value={name}
+            onChangeText={setName}
+            autoFocus
+            autoCapitalize="words"
+            returnKeyType="send"
+            onSubmitEditing={submit}
+            containerStyle={styles.field}
+          />
+
+          <Btn
+            label={t('ui.guest.requestCallBack')}
+            onPress={submit}
+            loading={submitting}
+            disabled={!name.trim()}
+          />
+          <Btn
+            label={t('ui.common.cancel')}
+            variant="secondary"
+            onPress={onClose}
+            style={styles.cancel}
+          />
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  fill: {
     flex: 1,
+    justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(20,20,45,0.55)',
   },
   sheet: {

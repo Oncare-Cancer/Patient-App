@@ -4,6 +4,7 @@ import { Info } from 'lucide-react-native';
 import { Txt } from './Txt';
 import { PALETTE, RADIUS, SPACE, SPACE as S, TEXT } from '@/constants/theme';
 import { useT } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 /**
  * The approximate-price disclaimer.
@@ -16,15 +17,24 @@ import { useT } from '@/contexts/LanguageContext';
  * The copy sits in `legal.*`, so it stays English until Marketing/Legal sign off
  * on a Hindi version. A machine-translated pricing disclaimer is not something
  * to ship in a cancer app.
+ *
+ * Two versions of it, chosen by auth state. The original asks the reader to
+ * "login and upload your medical documents" — correct for a guest on the public
+ * price lists, wrong for a patient who is already logged in and standing on the
+ * screen that uploads the prescription. The approximate-price warning itself
+ * stays in both: the catalogue number is never a quote.
  */
 export function PriceNote() {
   const t = useT();
+  const { isAuthenticated } = useAuth();
 
   return (
     <View style={styles.wrap}>
       <Info size={13} color={PALETTE.purple} strokeWidth={2.2} />
       <Txt variant="helperSm" color={TEXT.secondary} style={styles.text}>
-        {t('legal.approxPriceNote')}
+        {isAuthenticated
+          ? t('legal.approxPriceNoteLoggedIn')
+          : t('legal.approxPriceNote')}
       </Txt>
     </View>
   );
@@ -40,9 +50,16 @@ export function PriceNote() {
  */
 export function ApproxPrice({
   value,
+  to,
   align = 'right',
 }: {
   value: number | null | undefined;
+  /**
+   * Top of a range. Set only where one entry stands for several brands that are
+   * priced differently, so that "₹783" does not read as the price of a pack
+   * that may cost ₹3,720.
+   */
+  to?: number | null;
   align?: 'left' | 'right';
 }) {
   const t = useT();
@@ -58,10 +75,13 @@ export function ApproxPrice({
     );
   }
 
+  const rupees = (n: number) => `₹${n.toLocaleString('en-IN')}`;
+  const isRange = typeof to === 'number' && to > value;
+
   return (
     <View style={alignment}>
       <Txt variant="bodyMedium" script="latin">
-        ₹{value.toLocaleString('en-IN')}
+        {isRange ? `${rupees(value)} – ${rupees(to as number)}` : rupees(value)}
       </Txt>
       <Txt variant="helperSm" color={TEXT.muted}>
         {t('ui.common.approx')}

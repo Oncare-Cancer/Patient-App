@@ -48,6 +48,13 @@ type Props = {
   style?: ViewStyle;
   /** Smaller pill for inline actions (Directions / Reschedule / Cancel on D1). */
   compact?: boolean;
+  /**
+   * Inverts the `secondary` outline for use on a dark surface.
+   *
+   * The secondary variant outlines and labels in navy, which is invisible on
+   * the navy gradient cards. This switches both to white.
+   */
+  onDark?: boolean;
 };
 
 /**
@@ -65,6 +72,7 @@ export function Btn({
   icon,
   block,
   compact,
+  onDark,
   style,
 }: Props) {
   const isBlock =
@@ -77,6 +85,8 @@ export function Btn({
       ? TEXT.onDark
       : disabled
       ? TEXT.muted
+      : onDark
+      ? TEXT.onDark
       : PALETTE.midnight;
 
   const inner = (
@@ -108,6 +118,7 @@ export function Btn({
     compact ? styles.compact : styles.regular,
     variant === 'primary' && styles.primary,
     variant === 'secondary' && styles.secondary,
+    variant === 'secondary' && onDark && styles.secondaryOnDark,
     variant === 'danger' && styles.danger,
     variant === 'ghost' && styles.ghost,
     !!disabled && variant !== 'ghost' && styles.disabled,
@@ -171,6 +182,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 1.4,
     borderColor: PALETTE.midnight,
+  },
+  /** Secondary on a navy surface: white outline and a faint white fill. */
+  secondaryOnDark: {
+    borderColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   danger: {
     backgroundColor: PALETTE.sosRed,

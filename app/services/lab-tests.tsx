@@ -31,6 +31,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
 import { searchLabTests, type LabTest } from '@/services/catalog';
 import { createRequest, type RequestLine } from '@/services/requests';
+import { useDraftSync } from '@/hooks/useDraftSync';
 import { readPrescription, needsCarefulCheck } from '@/services/prescriptionAi';
 import { uploadFiles } from '@/services/upload';
 import { toastError } from '@/utils/toast';
@@ -86,6 +87,10 @@ export default function LabTests() {
   const [slot, setSlot] = useState<Slot>('7-10');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Persists the cart as it changes so the central team can see and
+  // follow up on carts that are never submitted.
+  useDraftSync('lab', lines, submitting);
 
   const attach = useAttachments();
   const debouncedSearch = useDebounced(search, 350);
@@ -359,20 +364,8 @@ export default function LabTests() {
                             <Txt variant="bodyMedium" script="latin" numberOfLines={2}>
                               {test.displayName}
                             </Txt>
-                            <View style={styles.testSub}>
-                              {test.tat ? (
-                                <Txt variant="helperSm" color={TEXT.muted}>
-                                  {t('ui.lab.reportIn', { time: test.tat })}
-                                </Txt>
-                              ) : null}
-                              {test.homeCollection ? (
-                                <View style={styles.homeTag}>
-                                  <Txt variant="helperSm" color="#1B7A42">
-                                    {t('ui.lab.homeCollection')}
-                                  </Txt>
-                                </View>
-                              ) : null}
-                            </View>
+                            {/* Turnaround and home-collection removed: the lab
+                                catalogue stores neither field. */}
                           </View>
                           <ApproxPrice value={test.price} />
                         </Card>

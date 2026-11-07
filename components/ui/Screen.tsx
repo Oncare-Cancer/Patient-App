@@ -79,6 +79,11 @@ export function Screen({
       style={styles.root}
       contentContainerStyle={{ paddingBottom: bottomPad }}
       keyboardShouldPersistTaps="handled"
+      // Insets the scroll view by the keyboard height so a focused field is
+      // scrolled into view instead of sitting behind the keyboard. Every form
+      // in the app renders inside a Screen, so this belongs here rather than
+      // being re-added per screen. No-op on Android, where the window resizes.
+      automaticallyAdjustKeyboardInsets
       showsVerticalScrollIndicator={false}
       refreshControl={
         onRefresh ? (

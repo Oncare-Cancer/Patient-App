@@ -39,6 +39,7 @@ export function DoctorStep({
   selected,
   onSelect,
   onViewProfile,
+  nextFree,
 }: {
   doctors: Practitioner[];
   loading: boolean;
@@ -46,6 +47,8 @@ export function DoctorStep({
   /** Advances to the slot step itself — there is no Continue button. */
   onSelect: (d: Practitioner) => void;
   onViewProfile: (d: Practitioner) => void;
+  /** practitionerId -> "Today 2:00 PM". Absent means not yet looked up. */
+  nextFree: Record<string, string>;
 }) {
   const t = useT();
   const [query, setQuery] = useState('');
@@ -83,6 +86,7 @@ export function DoctorStep({
       ) : (
         shown.map((d) => {
           const active = selected?.id === d.id;
+          const free = nextFree[d.id];
           return (
             <Pressable
               key={d.id}
@@ -135,34 +139,48 @@ export function DoctorStep({
                       </Txt>
                     ) : null}
 
+                    {/*
+                      Availability and "View profile" share one row so the
+                      card stays three lines tall instead of four, and the two
+                      things a patient weighs — when can I see them, and who
+                      are they — sit side by side.
+                    */}
                     <View style={styles.availRow}>
                       <CalendarCheck size={11} color="#1B7A42" strokeWidth={2.4} />
-                      <Txt variant="helperSm" color="#1B7A42">
-                        {t('ui.booking.nextAvailable')}
+                      <Txt
+                        variant="helperSm"
+                        color="#1B7A42"
+                        script={free ? 'latin' : 'auto'}
+                        numberOfLines={1}
+                        style={styles.flex}
+                      >
+                        {free
+                          ? `${t('ui.booking.nextAvailable')}: ${free}`
+                          : t('ui.booking.nextAvailable')}
                       </Txt>
+
+                      {/* Only when the CMS has a record to show. */}
+                      {d.hasProfile ? (
+                        <Pressable
+                          onPress={() => onViewProfile(d)}
+                          accessibilityRole="button"
+                          hitSlop={10}
+                          style={styles.profileLink}
+                        >
+                          <Txt
+                            variant="helperSm"
+                            color={PALETTE.deepBlue}
+                            style={styles.link}
+                          >
+                            {t('ui.booking.viewProfile')}
+                          </Txt>
+                        </Pressable>
+                      ) : null}
                     </View>
                   </View>
 
                   <ChevronRight size={16} color={TEXT.muted} strokeWidth={2.2} />
                 </View>
-
-                {/* Only when the CMS has a record to show. */}
-                {d.hasProfile ? (
-                  <Pressable
-                    onPress={() => onViewProfile(d)}
-                    accessibilityRole="button"
-                    hitSlop={8}
-                    style={styles.profileLink}
-                  >
-                    <Txt
-                      variant="helperSm"
-                      color={PALETTE.deepBlue}
-                      style={styles.link}
-                    >
-                      {t('ui.booking.viewProfile')}
-                    </Txt>
-                  </Pressable>
-                ) : null}
               </Card>
             </Pressable>
           );
@@ -193,9 +211,10 @@ const styles = StyleSheet.create({
   availRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: SPACE.xs,
     marginTop: SPACE.xxs,
   },
+  flex: { flex: 1 },
   profileLink: {
     alignSelf: 'flex-start',
     minHeight: 28,

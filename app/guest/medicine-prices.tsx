@@ -3,7 +3,6 @@ import { View, FlatList, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Lock, Pill, Search } from 'lucide-react-native';
 import {
-  ApproxPrice,
   Btn,
   Card,
   EmptyState,
@@ -14,6 +13,7 @@ import {
   SkeletonList,
   Txt,
 } from '@/components/ui';
+import { MedicineCard } from '@/components/services/MedicineCard';
 import { GuestNav } from '@/components/guest/GuestNav';
 import { LoginSheet } from '@/components/guest/LoginSheet';
 import { useT } from '@/contexts/LanguageContext';
@@ -114,40 +114,7 @@ export default function GuestMedicinePrices() {
             <PriceNote />
           </View>
         }
-        renderItem={({ item }) => (
-          <Card tone="plain" style={styles.row}>
-            <View style={styles.rowMeta}>
-              {/* Drug name and strength stay Latin — see constants/i18n/README. */}
-              <Txt variant="bodyMedium" script="latin" numberOfLines={2}>
-                {item.displayName}
-              </Txt>
-              <View style={styles.rowSub}>
-                {item.packSize ? (
-                  <Txt variant="helperSm" color={TEXT.muted} script="latin">
-                    {item.packSize}
-                  </Txt>
-                ) : item.genericName ? (
-                  <Txt
-                    variant="helperSm"
-                    color={TEXT.muted}
-                    script="latin"
-                    numberOfLines={1}
-                  >
-                    {item.genericName}
-                  </Txt>
-                ) : null}
-                {item.rxRequired ? (
-                  <View style={styles.rxTag}>
-                    <Txt variant="helperSm" color="#9A3412" script="latin">
-                      {t('clinical.rxRequired')}
-                    </Txt>
-                  </View>
-                ) : null}
-              </View>
-            </View>
-            <ApproxPrice value={item.price} />
-          </Card>
-        )}
+        renderItem={({ item }) => <MedicineCard medicine={item} />}
         ListEmptyComponent={
           state === 'loading' ? (
             <SkeletonList count={6} lines={1} />
@@ -220,28 +187,6 @@ const styles = StyleSheet.create({
     paddingTop: SPACE.lg,
     gap: SPACE.sm,
     marginBottom: SPACE.sm,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACE.sm,
-    marginBottom: SPACE.xs,
-  },
-  rowMeta: {
-    flex: 1,
-  },
-  rowSub: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACE.xs,
-    marginTop: 2,
-    flexWrap: 'wrap',
-  },
-  rxTag: {
-    backgroundColor: '#FEF3E2',
-    borderRadius: 6,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
   },
   howTo: {
     marginTop: SPACE.sm,

@@ -25,28 +25,39 @@ import { fetchWrapper } from '@/utils/fetchWrapper';
 
 export type LabTest = {
   id: string;
-  /** Cleaned, patient-facing name. */
+  /** Cleaned, patient-facing name — the lab's billing prefix is stripped. */
   displayName: string;
   /** Null when the catalogue has no selling price for this item. */
   price: number | null;
-  /** Turnaround, e.g. "24 hrs". Absent until Ops fills it in. */
-  tat?: string;
-  /** Whether a sample can be collected at home. Absent until Ops fills it in. */
-  homeCollection?: boolean;
-  /** Category chip: popular | tumour | blood | liverKidney. */
-  category?: string;
+  /**
+   * Cities this item is priced for, e.g. ["DELHI/NCR"].
+   *
+   * An array because `labCity` is stored as one: a handful of items are priced
+   * for both cities.
+   */
+  cities: string[];
 };
 
 export type Medicine = {
   id: string;
+  /**
+   * What the patient reads. The stored name is a purchase-order string — "ADS -
+   * KEYTRUDA 100 MG / 4 ML - PEMBROLIZUMAB - A003901" — and the backend strips
+   * the buying-house prefix, the repeated generic and the batch code off it.
+   */
   displayName: string;
+  /** Molecule and strength, when it says something the title does not. */
   genericName?: string;
   /** Null when the catalogue has no MRP for this item. */
   price: number | null;
-  /** e.g. "Strip of 10 tablets". Absent until Ops fills it in. */
-  packSize?: string;
-  /** Whether a prescription is needed before dispatch. */
-  rxRequired?: boolean;
+  /**
+   * Top of the price range, present only when the brands behind this entry are
+   * priced differently — the same carboplatin is ₹783 from one vendor and
+   * ₹3,720 from another, so one number would be a quote we cannot honour.
+   */
+  priceTo?: number;
+  /** How many brands this entry stands for. Absent when it stands for one. */
+  brands?: number;
 };
 
 export type Paged<T> = {
@@ -84,6 +95,17 @@ export async function searchLabTests(params: {
   return { list: res?.data?.list ?? [], totalCount: res?.data?.totalCount ?? 0 };
 }
 
+/**
+ * Medicines, with two different answers depending on whether `search` is set.
+ *
+ *  - With a search term: one entry per brand, because a patient searching
+ *    "Keytruda" is holding a prescription that says Keytruda.
+ *  - Without one: the default browse list, grouped by medicine and ordered by
+ *    how many SKUs the pharmacy stocks for it. That is the only popularity
+ *    signal the catalogue holds, and it beats the alphabetical first page,
+ *    which is a wound dressing followed by three duplicate rows of the same
+ *    chemotherapy drug.
+ */
 export async function searchMedicines(params: {
   search?: string;
   index?: number;

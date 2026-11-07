@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, CalendarDays, FileText, User, Plus } from 'lucide-react-native';
+import { Home, Compass, FileText, User, Plus } from 'lucide-react-native';
 import { Txt } from './Txt';
 import { useT } from '@/contexts/LanguageContext';
 import {
@@ -19,15 +19,22 @@ import type { StringKey } from '@/constants/i18n';
  * any other, so it needs an active state, but it renders as the raised circle
  * rather than a tab.
  */
-type TabKey = 'home' | 'activity' | 'book' | 'records' | 'profile';
+type TabKey = 'home' | 'explore' | 'book' | 'records' | 'profile';
 
+/**
+ * Explore sits where Activity used to.
+ *
+ * Activity is the patient's own appointments and requests, which belongs with
+ * the rest of their records under Profile. A tab is better spent on browsing
+ * centres and doctors, which is also the one section a guest can use fully.
+ */
 const TABS: {
   key: Exclude<TabKey, 'book'>;
   labelKey: StringKey;
   Icon: typeof Home;
 }[] = [
   { key: 'home', labelKey: 'ui.nav.home', Icon: Home },
-  { key: 'activity', labelKey: 'ui.nav.activity', Icon: CalendarDays },
+  { key: 'explore', labelKey: 'ui.nav.explore', Icon: Compass },
   { key: 'records', labelKey: 'ui.nav.records', Icon: FileText },
   { key: 'profile', labelKey: 'ui.nav.profile', Icon: User },
 ];

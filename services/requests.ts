@@ -129,6 +129,30 @@ export async function createRequest(body: {
   return { requestId: res?.data?.requestId ?? '' };
 }
 
+/**
+ * Saves the cart without submitting it.
+ *
+ * This is what lets the central team see a cart a patient filled and walked
+ * away from, so they can call and finish the order. One draft per patient per
+ * type is kept server-side, so calling this repeatedly as the cart changes
+ * updates a single row rather than leaving a trail.
+ *
+ * Deliberately fire-and-forget: a failed draft save must never interrupt the
+ * patient. Sending an empty `lines` clears the draft.
+ */
+export async function saveRequestDraft(body: {
+  type: RequestType;
+  lines: RequestLine[];
+  note?: string;
+  meta?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    await fetchWrapper('/requests/draft', { method: 'POST', body });
+  } catch {
+    // Swallowed on purpose — see above.
+  }
+}
+
 /** H3 — the Requests view in Activity. */
 export async function listRequests(): Promise<OpsRequest[]> {
   const res = await fetchWrapper<any>('/requests');

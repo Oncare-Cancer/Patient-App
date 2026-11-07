@@ -178,20 +178,9 @@ export default function GuestLabPrices() {
               <Txt variant="bodyMedium" script="latin" numberOfLines={2}>
                 {item.displayName}
               </Txt>
-              <View style={styles.rowSub}>
-                {item.tat ? (
-                  <Txt variant="helperSm" color={TEXT.muted}>
-                    {t('ui.lab.reportIn', { time: item.tat })}
-                  </Txt>
-                ) : null}
-                {item.homeCollection ? (
-                  <View style={styles.homeTag}>
-                    <Txt variant="helperSm" color="#1B7A42">
-                      {t('ui.lab.homeCollection')}
-                    </Txt>
-                  </View>
-                ) : null}
-              </View>
+              {/* Turnaround time and home-collection were removed: the lab
+                  catalogue has no column for either, so they could only ever
+                  render as nothing. They return when Ops can fill them in. */}
             </View>
             <ApproxPrice value={item.price} />
           </Card>

@@ -1,10 +1,8 @@
 import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
-import { Info } from 'lucide-react-native';
 import {
   Btn,
   Card,
-  Field,
   Txt,
 } from '@/components/ui';
 import { useT } from '@/contexts/LanguageContext';
@@ -46,8 +44,6 @@ export function ReviewStep({
   whenLabel,
   centreLabel,
   patientLabel,
-  reason,
-  onReason,
   onEdit,
   onConfirm,
   submitting,
@@ -58,8 +54,6 @@ export function ReviewStep({
   whenLabel: string;
   centreLabel: string;
   patientLabel: string;
-  reason: string;
-  onReason: (v: string) => void;
   onEdit: () => void;
   onConfirm: () => void;
   submitting: boolean;
@@ -123,32 +117,12 @@ export function ReviewStep({
         </Pressable>
       </Card>
 
-      <Field
-        label={t('ui.booking.reasonLabel')}
-        hint={`(${t('ui.common.optional')})`}
-        placeholder={t('ui.booking.reasonPlaceholder')}
-        value={reason}
-        onChangeText={onReason}
-        multiline
-        containerStyle={styles.field}
-      />
-
-      {/* No report upload here. The previous booking flow never collected
-          reports at this point and the patient is told to bring them to the
-          visit instead (the card below). Reports are uploaded from Records. */}
-
-      <Card tone="info" style={styles.bringCard}>
-        <View style={styles.bringTop}>
-          <Info size={14} color={PALETTE.midnight} strokeWidth={2.2} />
-          <Txt variant="helper">{t('ui.booking.pleaseBring')}</Txt>
-        </View>
-        <Txt variant="helperSm" color={TEXT.secondary}>
-          · {t('ui.booking.bringPhotoId')}
-        </Txt>
-        <Txt variant="helperSm" color={TEXT.secondary}>
-          · {t('ui.booking.bringReports')}
-        </Txt>
-      </Card>
+      {/*
+        Reason for visit, "Please bring" and the WhatsApp reminder note are all
+        gone. Docpulse takes no free-text reason on a booking, so the field was
+        collecting something that went nowhere; the other two were advice on a
+        screen whose only job is to confirm what was chosen.
+      */}
 
       <Btn
         label={t('ui.booking.confirmAppointment')}
@@ -156,10 +130,6 @@ export function ReviewStep({
         loading={submitting}
         style={styles.confirm}
       />
-
-      <Txt variant="helperSm" color={TEXT.muted} center style={styles.reminder}>
-        {t('ui.booking.reminderNote')}
-      </Txt>
     </View>
   );
 }
@@ -196,15 +166,6 @@ const styles = StyleSheet.create({
   rowValue: { flex: 1, textAlign: 'right' },
   editLink: { alignSelf: 'flex-end', minHeight: 30, justifyContent: 'center' },
   link: { textDecorationLine: 'underline' },
-  field: { marginTop: SPACE.md },
   label: { marginTop: SPACE.md, marginBottom: SPACE.xs },
-  bringCard: { marginTop: SPACE.md, gap: 2 },
-  bringTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACE.xs,
-    marginBottom: SPACE.xxs,
-  },
   confirm: { marginTop: SPACE.lg },
-  reminder: { marginTop: SPACE.sm, marginBottom: SPACE.lg },
 });
