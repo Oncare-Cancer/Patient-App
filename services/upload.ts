@@ -1,5 +1,5 @@
 import { File, FileMode, Paths, UploadType } from 'expo-file-system';
-import { BASE_URL } from '@/utils/fetchWrapper';
+import { APP_VERSION, BASE_URL } from '@/utils/fetchWrapper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { PickedFile } from '@/components/ui/UploadField';
 
@@ -81,8 +81,17 @@ async function authHeaders(): Promise<Record<string, string>> {
   return {
     'Content-Type': 'application/json',
     ...(token ? { token } : {}),
-    // Every authenticated mobile-app route checks the version header too.
-    appversion: '1.0.0',
+    /*
+      The REAL app version, not a literal.
+
+      Every authenticated mobile-app route reads this header, and the server
+      can be switched to reject anything but the current release
+      (commondata.mobile-app.forceUpdate). This was hardcoded "1.0.0", which
+      agreed with the rest of the app only until the version was bumped — and
+      then uploads alone would have reported the wrong version and been the
+      single feature that broke, which is the worst kind of bug to find.
+    */
+    appversion: APP_VERSION,
   };
 }
 

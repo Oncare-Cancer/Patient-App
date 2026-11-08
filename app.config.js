@@ -30,7 +30,23 @@ export default ({ config }) => {
 
   return {
     ...config,
-    version: "1.0.0",
+    /*
+      1.0.0 is spent.
+
+      App Store Connect closes a version "train" once a build under it has
+      been approved, and 1.0.0 had one from May. Every further upload under
+      it is rejected with 90186 "the train version is closed" and 90062
+      "must contain a higher version" - and a higher BUILD number does not
+      help, because Apple compares CFBundleShortVersionString, which is this
+      field.
+
+      1.0.1 specifically: the server's own mobile-app config already names
+      1.0.1 as the expected version, so the app and the force-update check
+      agree. That check is off today (forceUpdate: false), but when it is
+      switched on, this is the build that passes and 1.0.0 is the one told
+      to update.
+    */
+    version: "1.0.1",
     android: {
       ...config.android,
       versionCode: buildNumber,
