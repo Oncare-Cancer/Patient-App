@@ -14,6 +14,7 @@ import {
 } from '@/components/ui';
 import { GuestNav } from '@/components/guest/GuestNav';
 import { useT } from '@/contexts/LanguageContext';
+import { useGuestPrefill } from '@/hooks/useGuestPrefill';
 import { requestCallBack, requestErrorMessage } from '@/services/requests';
 import { DEFAULT_COUNTRY_CODE, isValidPhone } from '@/utils/phone';
 import { toastError, toastSuccess } from '@/utils/toast';
@@ -49,6 +50,12 @@ export default function GuestCallback() {
   const [consent, setConsent] = useState(false);
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
+  // The name and number used last time on this phone.
+  useGuestPrefill(true, true, (c) => {
+    setName(c.name);
+    setCountryCode(c.countryCode);
+    setMobile(c.phone);
+  });
 
   const valid = name.trim().length > 1 && isValidPhone(mobile, countryCode) && consent;
 

@@ -6,6 +6,7 @@ import { CalendarPlus, MessageCircleQuestion, UserRound } from 'lucide-react-nat
 import { Btn, Field, PhoneField, Txt } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
+import { useGuestPrefill } from '@/hooks/useGuestPrefill';
 import {
   requestCallBack,
   requestErrorMessage,
@@ -104,6 +105,12 @@ export function QuerySheet({
       setPhone((p) => p || String(patient.phone_number ?? '').replace(/\D/g, '').slice(-10));
     }
   }, [visible, patient]);
+  // A guest: the name and number used last time on this phone.
+  useGuestPrefill(visible && !patient, !name && !phone, (c) => {
+    setName(c.name);
+    setCountryCode(c.countryCode);
+    setPhone(c.phone);
+  });
 
   const nameOk = name.trim().length >= 2;
   const phoneOk = isValidPhone(phone, countryCode);

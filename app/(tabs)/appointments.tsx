@@ -11,6 +11,8 @@ import {
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   CalendarDays,
+  ChevronRight,
+  LogIn,
   MapPin,
   Navigation,
   Inbox,
@@ -53,6 +55,7 @@ import {
   confirmRequestPrice,
   type OpsRequest,
 } from '@/services/requests';
+import { listGuestRequests } from '@/services/guestIdentity';
 import { matchCentre, openDirections } from '@/services/directions';
 import { getCentres, type Centre } from '@/services/catalog';
 import { SUPPORT_NUMBER } from '@/constants/contact';
@@ -84,6 +87,11 @@ import {
  * from Profile, so "where are my things" had two answers. They are now three
  * views of one screen. `?view=reports` opens straight on a tab, for a
  * notification about a new document.
+ *
+ * A guest gets the same three tabs. Requests lists what they sent from this
+ * phone (matched on the number they used AND this device's key - see
+ * services/guestIdentity.ts), and opens first, since it is the one with
+ * something in it; Appointments and Reports say what logging in shows.
  */
 type ViewKey = 'appointments' | 'requests' | 'reports';
 
@@ -94,7 +102,11 @@ export default function Activity() {
   const { isAuthenticated } = useAuth();
   const params = useLocalSearchParams<{ view?: string }>();
   const [view, setView] = useState<ViewKey>(
-    params.view === 'reports' || params.view === 'requests' ? params.view : 'appointments'
+    params.view === 'reports' || params.view === 'requests'
+      ? params.view
+      : isAuthenticated
+      ? 'appointments'
+      : 'requests'
   );
   /** Bumped by pull-to-refresh on the Reports view. */
   const [recordsKey, setRecordsKey] = useState(0);
@@ -124,6 +136,19 @@ export default function Activity() {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!isAuthenticated) {
+      // A guest: only what they sent from this phone. Makes no call at all
+      // until they have sent something.
+      try {
+        setRequests(await listGuestRequests());
+      } catch {
+        // Leave the last list in place; the empty state is not an error.
+      }
+      setAppointments([]);
+      setState('ready');
+      setRefreshing(false);
+      return;
+    }
     // Independent sources: a failing requests endpoint must not hide the
     // patient's appointments.
     const [appts, reqs] = await Promise.allSettled([
@@ -140,7 +165,7 @@ export default function Activity() {
     if (reqs.status === 'fulfilled') setRequests(reqs.value);
 
     setRefreshing(false);
-  }, []);
+  }, [isAuthenticated]);
 
   /**
    * Reloads on focus and resets the filter to Upcoming.
@@ -153,10 +178,10 @@ export default function Activity() {
   useFocusEffect(
     useCallback(() => {
       setBucket('upcoming');
-      // A guest has no appointments to fetch, and asking would raise the
-      // "please log in" alert on a screen that already says so.
-      if (isAuthenticated) void load();
-    }, [load, isAuthenticated])
+      // `load` knows a guest from a patient: a guest's call is the public
+      // guest list, never an endpoint that would raise "please log in".
+      void load();
+    }, [load])
   );
 
   const counts = useMemo(() => {
@@ -259,17 +284,13 @@ export default function Activity() {
     <View style={styles.root}>
       <ScreenHeader title={t('ui.myCare.title')} back={false} />
 
-      {!isAuthenticated ? (
-        <Screen withNav>
-          <GuestGate />
-        </Screen>
-      ) : (
       <Screen
         withNav
         refreshing={refreshing}
         onRefresh={() => {
           setRefreshing(true);
-          if (view === 'reports') setRecordsKey((k) => k + 1);
+          if (view === 'reports' && isAuthenticated) setRecordsKey((k) => k + 1);
+          else if (view === 'reports') setRefreshing(false);
           else void load();
         }}
       >
@@ -317,7 +338,9 @@ export default function Activity() {
           </Pressable>
         </View>
 
-        {view === 'appointments' ? (
+        {view === 'appointments' && !isAuthenticated ? (
+          <GuestGate title="ui.myCare.guestApptTitle" body="ui.myCare.guestApptBody" showItems={false} />
+        ) : view === 'appointments' ? (
           <>
             <View style={styles.chips}>
               <Chip
@@ -557,6 +580,11 @@ export default function Activity() {
           </>
         ) : view === 'requests' ? (
           <>
+            {!isAuthenticated ? (
+              <Txt variant="helperSm" color={TEXT.secondary} style={styles.guestIntro}>
+                {t('ui.myCare.guestRequestsBody')}
+              </Txt>
+            ) : null}
             {state === 'loading' ? (
               <SkeletonList count={3} lines={3} />
             ) : requests.length === 0 ? (
@@ -571,21 +599,47 @@ export default function Activity() {
                   request={req}
                   onCall={call}
                   confirming={confirmingId === req.requestId}
-                  onConfirmPrice={() => void confirmPrice(req)}
+                  // Accepting a price is an authenticated action; a guest
+                  // confirms on the call instead.
+                  onConfirmPrice={isAuthenticated ? () => void confirmPrice(req) : undefined}
                 />
               ))
             )}
+
+            {/* The way from here to the full picture: reports, appointments
+                and real slots are behind login. */}
+            {!isAuthenticated ? (
+              <Pressable
+                onPress={() => router.push('/login')}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.guestLoginWrap, pressed && styles.pressed]}
+              >
+                <Card tone="info" style={styles.guestLogin}>
+                  <View style={styles.guestLoginIcon}>
+                    <LogIn size={16} color={PALETTE.midnight} strokeWidth={2.2} />
+                  </View>
+                  <View style={styles.flex}>
+                    <Txt variant="bodyMedium">{t('ui.myCare.guestLoginTitle')}</Txt>
+                    <Txt variant="helperSm" color={TEXT.secondary}>
+                      {t('ui.myCare.guestLoginBody')}
+                    </Txt>
+                  </View>
+                  <ChevronRight size={16} color={TEXT.muted} strokeWidth={2.2} />
+                </Card>
+              </Pressable>
+            ) : null}
           </>
         ) : null}
 
-        {view === 'reports' ? (
+        {view === 'reports' && !isAuthenticated ? (
+          <GuestGate title="ui.myCare.guestReportsTitle" body="ui.myCare.guestReportsBody" showItems={false} />
+        ) : view === 'reports' ? (
           <RecordsList
             reloadKey={recordsKey}
             onSettled={() => setRefreshing(false)}
           />
         ) : null}
       </Screen>
-      )}
 
       <RescheduleSheet
         appointment={rescheduling}
@@ -602,6 +656,18 @@ export default function Activity() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: SURFACE.screen },
   flex: { flex: 1 },
+  pressed: { opacity: 0.9 },
+  guestIntro: { marginBottom: SPACE.sm },
+  guestLoginWrap: { marginTop: SPACE.md },
+  guestLogin: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm },
+  guestLoginIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: SURFACE.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   tabs: {
     flexDirection: 'row',
     backgroundColor: SURFACE.disabled,

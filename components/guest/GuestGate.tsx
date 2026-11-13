@@ -17,9 +17,12 @@ import { PALETTE, RADIUS, SPACE, SURFACE, TEXT } from '@/constants/theme';
 export function GuestGate({
   title = 'ui.myCare.guestTitle',
   body = 'ui.myCare.guestBody',
+  showItems = true,
 }: {
   title?: StringKey;
   body?: StringKey;
+  /** The three chips naming what is behind login; off inside a single tab. */
+  showItems?: boolean;
 }) {
   const t = useT();
   const router = useRouter();
@@ -42,14 +45,16 @@ export function GuestGate({
         {t(body)}
       </Txt>
 
-      <View style={styles.items}>
-        {items.map(({ Icon, label }) => (
-          <View key={label} style={styles.item}>
-            <Icon size={15} color={PALETTE.midnight} strokeWidth={2.2} />
-            <Txt variant="helper">{t(label)}</Txt>
-          </View>
-        ))}
-      </View>
+      {showItems ? (
+        <View style={styles.items}>
+          {items.map(({ Icon, label }) => (
+            <View key={label} style={styles.item}>
+              <Icon size={15} color={PALETTE.midnight} strokeWidth={2.2} />
+              <Txt variant="helper">{t(label)}</Txt>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       <Btn label={t('ui.login.login')} onPress={() => router.push('/login')} />
     </Card>

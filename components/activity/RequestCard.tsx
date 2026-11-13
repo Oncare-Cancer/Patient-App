@@ -43,6 +43,7 @@ const TYPE_LABEL: Record<string, StringKey> = {
   secondOpinion: 'ui.home.secondOpinion',
   admission: 'ui.home.admissionDaycare',
   callBack: 'ui.guest.callBackTitle',
+  consultation: 'ui.guest.consultation',
 };
 
 function stepsFor(req: OpsRequest, t: (k: StringKey) => string): TimelineStep[] {

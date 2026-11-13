@@ -634,6 +634,13 @@ export const en = {
       guestBody: 'Log in with the mobile number you gave at the centre to see your appointments, requests and reports.',
       profileGuestTitle: 'You are browsing as a guest',
       profileGuestBody: 'Log in to see your details, appointments and reports.',
+      guestRequestsBody: 'Requests you send from this phone show here, with where each one has got to.',
+      guestLoginTitle: 'Already an Oncare patient?',
+      guestLoginBody: 'Log in to see your reports, view your appointments and book an exact slot.',
+      guestApptTitle: 'Your appointments',
+      guestApptBody: 'Log in with the mobile number you gave at the centre to see your appointments and book an exact slot.',
+      guestReportsTitle: 'Your reports',
+      guestReportsBody: 'Log in with the mobile number you gave at the centre to see and download your reports.',
     },
     discover: {
       title: 'Discover',

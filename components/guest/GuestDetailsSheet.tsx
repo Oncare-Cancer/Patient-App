@@ -5,6 +5,7 @@ import { UserRound } from 'lucide-react-native';
 import { Btn, Field, PhoneField, Txt } from '@/components/ui';
 import { DEFAULT_COUNTRY_CODE, isValidPhone } from '@/utils/phone';
 import { useT } from '@/contexts/LanguageContext';
+import { useGuestPrefill } from '@/hooks/useGuestPrefill';
 import {
   PALETTE,
   RADIUS,
@@ -57,6 +58,13 @@ export function GuestDetailsSheet({
   const [phone, setPhone] = useState('');
   const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_CODE);
   const [touched, setTouched] = useState(false);
+  // The name and number used last time on this phone, so they are not asked
+  // for again.
+  useGuestPrefill(visible, !name && !phone, (c) => {
+    setName(c.name);
+    setCountryCode(c.countryCode);
+    setPhone(c.phone);
+  });
 
   const nameOk = name.trim().length >= 2;
   // Checked here as well as on the server, because an unreachable number makes

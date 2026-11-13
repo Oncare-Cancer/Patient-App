@@ -16,6 +16,7 @@ import {
 import { CentreStep } from '@/components/booking/CentreStep';
 import { DoctorStep } from '@/components/booking/DoctorStep';
 import { useT } from '@/contexts/LanguageContext';
+import { useGuestPrefill } from '@/hooks/useGuestPrefill';
 import { getCentres, type Centre } from '@/services/catalog';
 import { getCentreDetail, type Doctor } from '@/services/doctors';
 import type { Location, Practitioner } from '@/services/booking';
@@ -128,6 +129,12 @@ export function GuestBooking() {
   const [touched, setTouched] = useState(false);
   const [sending, setSending] = useState(false);
   const [requestId, setRequestId] = useState('');
+  // The name and number used last time on this phone.
+  useGuestPrefill(true, true, (c) => {
+    setName(c.name);
+    setCountryCode(c.countryCode);
+    setPhone(c.phone);
+  });
 
   /* ---------------------------------------------------------------- loads */
 

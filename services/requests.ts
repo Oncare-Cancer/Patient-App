@@ -1,5 +1,6 @@
 import { fetchWrapper } from '@/utils/fetchWrapper';
 import { getApproxLocation, type ApproxLocation } from '@/services/location';
+import { guestDeviceKey, rememberGuestContact } from '@/services/guestIdentity';
 
 /**
  * Ops requests — the tickets behind sections 12 to 17.
@@ -151,9 +152,11 @@ export async function requestCallBack(body: {
 }): Promise<{ requestId: string }> {
   const res = await fetchWrapper<any>('/requests/call-back', {
     method: 'POST',
-    body: { ...body, ...(await locationField()) },
+    // The device key lets this phone list the request in My Care later.
+    body: { ...body, ...(await locationField()), guestKey: await guestDeviceKey() },
     skipAuth: true,
   });
+  await rememberGuestContact({ name: body.name, phone: body.mobile, countryCode: body.countryCode ?? '91' });
   return { requestId: res?.data?.requestId ?? '' };
 }
 
@@ -210,9 +213,9 @@ export type GuestRequestType =
  *    patient id), so the guest screens do not offer attachments at all rather
  *    than offering them and failing.
  *
- * There is no guest read endpoint on purpose: a phone number is not a
- * credential, so the patient is told the team will call rather than being
- * given a way to look the request up.
+ * A guest can list these later only from the same device: the read needs the
+ * number AND this device's random key (services/guestIdentity.ts), because a
+ * phone number alone is not a credential.
  */
 export async function createGuestRequest(body: {
   type: GuestRequestType;
@@ -233,9 +236,11 @@ export async function createGuestRequest(body: {
 }): Promise<{ requestId: string }> {
   const res = await fetchWrapper<any>('/requests/guest', {
     method: 'POST',
-    body: { ...body, ...(await locationField()) },
+    // The device key lets this phone list the request in My Care later.
+    body: { ...body, ...(await locationField()), guestKey: await guestDeviceKey() },
     skipAuth: true,
   });
+  await rememberGuestContact({ name: body.name, phone: body.phone, countryCode: body.countryCode ?? '91' });
   return { requestId: res?.data?.requestId ?? '' };
 }
 
