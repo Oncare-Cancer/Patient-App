@@ -60,8 +60,17 @@ export type FaqPage = {
   groups?: { title?: string; items?: { q?: string; a?: string }[] }[];
 };
 
+/**
+ * Read from the public `GET /app-faqs`, which serves the same payload as the
+ * authenticated `POST /getFaqQuestions`. FAQs are reachable from Discover
+ * before login, and the old endpoint answered a guest with a 401.
+ */
 export async function getFaqTabs(): Promise<FaqTab[]> {
-  const data = await retry(() => post<FaqTab[]>('getFaqQuestions', {}));
+  const data = await retry(async () => {
+    const res = await fetchWrapper<any>('/app-faqs', { skipAuth: true });
+    if (res.code !== 1) throw new Error(res.message ?? 'Request failed');
+    return res.data as FaqTab[];
+  });
   return data ?? [];
 }
 

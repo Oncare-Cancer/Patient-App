@@ -78,10 +78,13 @@ export function QuerySheet({
   visible,
   onClose,
   origin,
+  topic,
 }: {
   visible: boolean;
   onClose: () => void;
   origin: RequestOrigin;
+  /** Call-back topic; defaults to 'video' or 'article' from the origin. */
+  topic?: string;
 }) {
   const t = useT();
   const insets = useSafeAreaInsets();
@@ -115,7 +118,7 @@ export function QuerySheet({
         mobile: phone,
         countryCode,
         callingFor: 'myself',
-        topic: origin.type === 'video' ? 'video' : 'article',
+        topic: topic ?? (origin.type === 'video' ? 'video' : 'article'),
         note: question.trim() || undefined,
         origin,
       });

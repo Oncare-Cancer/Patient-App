@@ -22,7 +22,12 @@ import {
 import { COLORS, FONTS } from '@/constants/theme';
 import { fetchWrapper } from '@/utils/fetchWrapper';
 
-export function FAQView({ data, onClose }: any) {
+/**
+ * `onAsk`, when given, replaces the built-in email form. The email form posts
+ * `askUsEmailQuery`, which needs login, so guests are sent to a call-back
+ * request instead.
+ */
+export function FAQView({ data, onClose, onAsk }: any) {
   const [openGroup, setOpenGroup] = useState<number | null>(0);
   const [openIndex, setOpenIndex] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -147,7 +152,7 @@ export function FAQView({ data, onClose }: any) {
       </ScrollView>
 
       {/* Floating CTA */}
-      <Pressable onPress={openForm} style={styles.fab}>
+      <Pressable onPress={onAsk ?? openForm} style={styles.fab}>
         <Mail size={16} color={COLORS.white} />
         <Text style={styles.fabText}>{data.ctaText}</Text>
       </Pressable>

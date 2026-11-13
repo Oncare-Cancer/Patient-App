@@ -13,6 +13,7 @@ import {
   Txt,
 } from '@/components/ui';
 import { FAQView } from '@/components/FAQView';
+import { QuerySheet } from '@/components/discover/ContentCta';
 import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
 import {
@@ -39,7 +40,10 @@ import {
  */
 export default function Faq() {
   const t = useT();
-  const { patient } = useAuth();
+  const { isAuthenticated } = useAuth();
+  // `askUsEmailQuery` needs a session (it takes name and mobile from it), so a
+  // guest asks through a call-back request instead.
+  const [askOpen, setAskOpen] = useState(false);
 
   const [tabs, setTabs] = useState<FaqTab[]>([]);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -101,8 +105,26 @@ export default function Faq() {
   // FAQView takes over the whole screen when a topic is open, as before. It
   // reads `heading` / `groups` off what it is given, which live on the topic's
   // inner `page` object — handing it the wrapper crashed on `groups.map`.
+  const askSheet = (
+    <QuerySheet
+      visible={askOpen}
+      onClose={() => setAskOpen(false)}
+      origin={{ type: 'service', slug: 'faq', title: t('ui.profile.faqs') }}
+      topic="faq"
+    />
+  );
+
   if (active) {
-    return <FAQView data={faqPage(active)} onClose={() => setActive(null)} />;
+    return (
+      <>
+        <FAQView
+          data={faqPage(active)}
+          onClose={() => setActive(null)}
+          onAsk={isAuthenticated ? undefined : () => setAskOpen(true)}
+        />
+        {askSheet}
+      </>
+    );
   }
 
   return (
@@ -143,45 +165,60 @@ export default function Faq() {
         <Txt variant="section" style={styles.askTitle}>
           {t('ui.faq.stillNeedHelp')}
         </Txt>
-        <Card tone="plain" style={styles.askCard}>
-          {/* Required by the backend: the reply is sent by email, so there is
-              nowhere to answer without it. */}
-          <Field
-            label={t('ui.faq.yourEmail')}
-            placeholder={t('ui.faq.emailPlaceholder')}
-            value={email}
-            onChangeText={(v) => {
-              setEmail(v);
-              if (errors.email) setErrors((e) => ({ ...e, email: '' }));
-            }}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoComplete="email"
-            error={errors.email}
-          />
-          <Field
-            label={t('ui.faq.yourQuestion')}
-            placeholder={t('ui.faq.questionPlaceholder')}
-            value={message}
-            onChangeText={(v) => {
-              setMessage(v);
-              if (errors.message) setErrors((e) => ({ ...e, message: '' }));
-            }}
-            multiline
-            error={errors.message}
-          />
-          <Btn
-            label={t('ui.common.submit')}
-            onPress={send}
-            loading={sending}
-            disabled={!email.trim() || message.trim().length < 5}
-            style={styles.send}
-          />
-          <Txt variant="helperSm" color={TEXT.muted}>
-            {t('ui.faq.replyNote')}
-          </Txt>
-        </Card>
+        {!isAuthenticated ? (
+          <Card tone="plain" style={styles.askCard}>
+            <Txt variant="helper" color={TEXT.secondary}>
+              {t('ui.discover.queryBody')}
+            </Txt>
+            <Btn
+              label={t('ui.discover.querySend')}
+              onPress={() => setAskOpen(true)}
+              style={styles.send}
+            />
+          </Card>
+        ) : (
+          <Card tone="plain" style={styles.askCard}>
+            {/* Required by the backend: the reply is sent by email, so there is
+                nowhere to answer without it. */}
+            <Field
+              label={t('ui.faq.yourEmail')}
+              placeholder={t('ui.faq.emailPlaceholder')}
+              value={email}
+              onChangeText={(v) => {
+                setEmail(v);
+                if (errors.email) setErrors((e) => ({ ...e, email: '' }));
+              }}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              error={errors.email}
+            />
+            <Field
+              label={t('ui.faq.yourQuestion')}
+              placeholder={t('ui.faq.questionPlaceholder')}
+              value={message}
+              onChangeText={(v) => {
+                setMessage(v);
+                if (errors.message) setErrors((e) => ({ ...e, message: '' }));
+              }}
+              multiline
+              error={errors.message}
+            />
+            <Btn
+              label={t('ui.common.submit')}
+              onPress={send}
+              loading={sending}
+              disabled={!email.trim() || message.trim().length < 5}
+              style={styles.send}
+            />
+            <Txt variant="helperSm" color={TEXT.muted}>
+              {t('ui.faq.replyNote')}
+            </Txt>
+          </Card>
+        )}
       </Screen>
+
+      {askSheet}
     </View>
   );
 }
