@@ -26,7 +26,7 @@ export {
   UPLOAD_LIMITS,
   type PickedFile,
 } from './UploadField';
-export { BottomNav, type TabKey } from './BottomNav';
+export { BottomNav, TAB_ROUTES, type TabKey } from './BottomNav';
 export { EmptyState, ErrorState } from './EmptyState';
 export { SkeletonBlock, SkeletonCard, SkeletonList } from './Skeleton';
 export { LanguageSegmented, LanguageRows } from './LanguagePicker';

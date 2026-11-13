@@ -16,7 +16,8 @@ import {
 import { useAttachments } from '@/hooks/useAttachments';
 import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
-import { createRequest } from '@/services/requests';
+import { createGuestRequest, createRequest, requestErrorMessage } from '@/services/requests';
+import { GuestDetailsSheet } from '@/components/guest/GuestDetailsSheet';
 import { uploadFiles, isLargeUpload, UploadError } from '@/services/upload';
 import { useUploadProgress } from '@/hooks/useUploadProgress';
 import { toastError, toastSuccess } from '@/utils/toast';
@@ -41,7 +42,15 @@ type Slot = '7-10' | '10-13' | '16-19';
 export default function HomeCareForm() {
   const t = useT();
   const router = useRouter();
-  const { patient } = useAuth();
+  const { patient, isAuthenticated } = useAuth();
+  /*
+   * Home care is open to guests (round 7): it is a Home tile like the others.
+   * A guest gives a name and number at submit, has no prescription upload
+   * (uploads are scoped to a patient), and the team confirms the visit on the
+   * call. A signed-in patient's flow is unchanged.
+   */
+  const isGuest = !isAuthenticated || !patient;
+  const [guestOpen, setGuestOpen] = useState(false);
   const { kind } = useLocalSearchParams<{ kind?: 'nursing' | 'palliative' }>();
 
   const [address, setAddress] = useState('');
@@ -73,8 +82,62 @@ export default function HomeCareForm() {
 
   const valid = address.trim().length > 4 && pincode.length === 6;
 
+  const goSubmitted = (requestId: string, mobile: string) => {
+    const rows = [
+      `${t('ui.homeCare.title')}|${title}`,
+      `${t('ui.homeCare.preferredDate')}|${preferredDate}`,
+      `${t('ui.homeCare.preferredTime')}|${slots.find((s) => s.key === slot)?.label ?? ''}`,
+    ].join('~');
+    // `replace`, not `push`: the request is already raised, so going back to
+    // the form would invite a duplicate.
+    router.replace({
+      pathname: '/services/submitted',
+      params: { requestId, mobile, rows },
+    });
+  };
+
+  const submitAsGuest = async ({
+    name,
+    phone,
+    countryCode,
+  }: {
+    name: string;
+    phone: string;
+    countryCode: string;
+  }) => {
+    setSubmitting(true);
+    try {
+      const { requestId } = await createGuestRequest({
+        type: 'homeCare',
+        name,
+        phone,
+        countryCode,
+        subType: kind === 'palliative' ? 'palliative' : 'nursing',
+        address: address.trim(),
+        pincode,
+        preferredDate,
+        preferredSlot: slot,
+        note: note.trim() || undefined,
+        origin: { type: 'service', slug: 'home-care' },
+      });
+      setGuestOpen(false);
+      goSubmitted(requestId, countryCode === '91' ? phone : `+${countryCode} ${phone}`);
+    } catch (err) {
+      toastError(
+        t('ui.common.somethingWrong'),
+        requestErrorMessage(err) ?? t('ui.common.retry')
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const submit = async () => {
     if (!valid || submitting) return;
+    if (isGuest) {
+      setGuestOpen(true);
+      return;
+    }
     setSubmitting(true);
     try {
       // Files first: a request that references an upload that failed is worse
@@ -100,28 +163,16 @@ export default function HomeCareForm() {
         fileKeys,
       });
 
-      const rows = [
-        `${t('ui.homeCare.title')}|${title}`,
-        `${t('ui.homeCare.preferredDate')}|${preferredDate}`,
-        `${t('ui.homeCare.preferredTime')}|${slots.find((s) => s.key === slot)?.label ?? ''}`,
-      ].join('~');
-
-      // `replace`, not `push`: the form's request is already raised, so going
-      // back to it would invite a duplicate.
-      router.replace({
-        pathname: '/services/submitted',
-        params: {
-          requestId,
-          mobile: patient?.phone_number ?? '',
-          rows,
-        },
-      });
+      goSubmitted(requestId, patient?.phone_number ?? '');
     } catch (err) {
       // The server's own wording when it has one, e.g. which file was too big.
       if (err instanceof UploadError) {
         toastError(t('ui.upload.uploadFailed'), err.userMessage);
       } else {
-        toastError(t('ui.common.somethingWrong'), t('ui.common.retry'));
+        toastError(
+          t('ui.common.somethingWrong'),
+          requestErrorMessage(err) ?? t('ui.common.retry')
+        );
       }
     } finally {
       upload.reset();
@@ -138,19 +189,24 @@ export default function HomeCareForm() {
             member, which needs the family-members API that does not exist yet,
             so "Change" is intentionally not offered rather than being a dead
             link. */}
-        <Txt variant="helper" color={TEXT.secondary} style={styles.label}>
-          {t('ui.booking.patient')}
-        </Txt>
-        <Card tone="plain" style={styles.patientCard}>
-          <Txt variant="bodyMedium" numberOfLines={1} style={styles.flex}>
-            {patient?.patient_name ?? '—'}
-          </Txt>
-          {patient?.patient_id ? (
-            <Txt variant="helperSm" color={TEXT.muted} script="latin">
-              UID {patient.patient_id}
+        {/* A guest has no record to show; their name is asked for at submit. */}
+        {isGuest ? null : (
+          <>
+            <Txt variant="helper" color={TEXT.secondary} style={styles.label}>
+              {t('ui.booking.patient')}
             </Txt>
-          ) : null}
-        </Card>
+            <Card tone="plain" style={styles.patientCard}>
+              <Txt variant="bodyMedium" numberOfLines={1} style={styles.flex}>
+                {patient?.patient_name ?? '—'}
+              </Txt>
+              {patient?.patient_id ? (
+                <Txt variant="helperSm" color={TEXT.muted} script="latin">
+                  UID {patient.patient_id}
+                </Txt>
+              ) : null}
+            </Card>
+          </>
+        )}
 
         <Field
           label={t('ui.homeCare.visitAddress')}
@@ -213,16 +269,22 @@ export default function HomeCareForm() {
           ))}
         </View>
 
-        <Txt variant="helper" color={TEXT.secondary} style={styles.label}>
-          {t('ui.homeCare.prescriptionAdvice')}
-        </Txt>
-        <UploadField
-          label={t('ui.homeCare.uploadPrescription')}
-          hint={t('ui.homeCare.uploadHint')}
-          files={attach.files}
-          onPick={attach.openSheet}
-          onRemove={attach.remove}
-        />
+        {/* Uploads need a session: the storage key is scoped to a patient id.
+            A guest shares the prescription on the team's call instead. */}
+        {isGuest ? null : (
+          <>
+            <Txt variant="helper" color={TEXT.secondary} style={styles.label}>
+              {t('ui.homeCare.prescriptionAdvice')}
+            </Txt>
+            <UploadField
+              label={t('ui.homeCare.uploadPrescription')}
+              hint={t('ui.homeCare.uploadHint')}
+              files={attach.files}
+              onPick={attach.openSheet}
+              onRemove={attach.remove}
+            />
+          </>
+        )}
 
         <Field
           label={t('ui.homeCare.noteForTeam')}
@@ -245,6 +307,18 @@ export default function HomeCareForm() {
           {t('ui.homeCare.callNote')}
         </Txt>
       </Screen>
+
+      <GuestDetailsSheet
+        visible={guestOpen}
+        submitting={submitting}
+        summary={title}
+        onClose={() => setGuestOpen(false)}
+        onSubmit={(d) => void submitAsGuest(d)}
+        onLogin={() => {
+          setGuestOpen(false);
+          router.push('/login');
+        }}
+      />
 
       <AttachSheet
         visible={attach.sheetOpen}

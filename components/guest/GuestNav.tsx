@@ -1,70 +1,18 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useRouter } from 'expo-router';
-import { BottomNav, type TabKey } from '@/components/ui';
-import { LoginSheet } from '@/components/guest/LoginSheet';
+import { BottomNav, TAB_ROUTES, type TabKey } from '@/components/ui';
 
 /**
- * The bottom nav as a guest sees it.
+ * The bottom nav on the few screens that live outside the tab group
+ * (app/guest/*).
  *
- * Section 06 puts Activity, Records and Profile behind login, so tapping them
- * opens the login sheet on the same screen rather than navigating — "A locked
- * action opens a login bottom sheet on the same screen, not a new page."
- *
- * Home and Book stay open: browsing doctors and slots is explicitly allowed, and
- * login is only asked for at the point of confirming.
+ * It used to be a second, guest-only nav with its own idea of where each tab
+ * went - /guest for Home, /guest/doctors for Book, a login sheet for the rest.
+ * Round 7 opens every tab to a guest, so this is now the same bar with the
+ * same routes (TAB_ROUTES); My Care and Profile show their own login prompt.
  */
-/** Where each locked tab lands once the patient is signed in. */
-const TAB_PATH: Partial<Record<TabKey, string>> = {
-  records: '/(tabs)/documents',
-  profile: '/(tabs)/profile',
-};
-
 export function GuestNav({ active }: { active: TabKey }) {
   const router = useRouter();
-  const [locked, setLocked] = useState<TabKey | null>(null);
-
-  const go = (key: TabKey) => {
-    if (key === 'home') {
-      router.replace('/guest');
-      return;
-    }
-    // Browsing doctors is explicitly open to guests; login is only asked for at
-    // the point of confirming a booking.
-    if (key === 'book') {
-      router.push('/guest/doctors');
-      return;
-    }
-    // Explore reads the token-free catalogue endpoints, so a guest gets the
-    // full screen rather than a login prompt.
-    if (key === 'explore') {
-      router.push('/(tabs)/explore');
-      return;
-    }
-    setLocked(key);
-  };
-
-  return (
-    <>
-      <BottomNav
-        active={active}
-        onTab={go}
-        onBook={() => router.push('/guest/doctors')}
-      />
-      <LoginSheet
-        visible={locked !== null}
-        // Nothing to restore for a tab, but the patient still lands where they
-        // were heading instead of on Home.
-        intent={
-          locked && TAB_PATH[locked]
-            ? { kind: 'route', summary: locked, path: TAB_PATH[locked]! }
-            : undefined
-        }
-        onClose={() => setLocked(null)}
-        onLogin={() => {
-          setLocked(null);
-          router.replace('/login');
-        }}
-      />
-    </>
-  );
+  const go = (key: TabKey) => router.replace(TAB_ROUTES[key] as never);
+  return <BottomNav active={active} onTab={go} onBook={() => go('book')} />;
 }

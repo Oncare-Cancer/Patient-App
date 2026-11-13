@@ -8,7 +8,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   CalendarDays,
   MapPin,
@@ -29,6 +29,9 @@ import {
   Txt,
 } from '@/components/ui';
 import { RequestCard } from '@/components/activity/RequestCard';
+import { RecordsList } from '@/components/records/RecordsList';
+import { GuestGate } from '@/components/guest/GuestGate';
+import { useAuth } from '@/contexts/AuthContext';
 import { RescheduleSheet } from '@/components/activity/RescheduleSheet';
 import { useT } from '@/contexts/LanguageContext';
 import {
@@ -74,13 +77,30 @@ import {
  * see services/appointments.ts.
  */
 
-type ViewKey = 'appointments' | 'requests';
+/**
+ * My Care: the patient's own appointments, requests and reports in one tab.
+ *
+ * Reports used to be a separate Records tab and Activity was reachable only
+ * from Profile, so "where are my things" had two answers. They are now three
+ * views of one screen. `?view=reports` opens straight on a tab, for a
+ * notification about a new document.
+ */
+type ViewKey = 'appointments' | 'requests' | 'reports';
 
 export default function Activity() {
   const t = useT();
   const router = useRouter();
 
-  const [view, setView] = useState<ViewKey>('appointments');
+  const { isAuthenticated } = useAuth();
+  const params = useLocalSearchParams<{ view?: string }>();
+  const [view, setView] = useState<ViewKey>(
+    params.view === 'reports' || params.view === 'requests' ? params.view : 'appointments'
+  );
+  /** Bumped by pull-to-refresh on the Reports view. */
+  const [recordsKey, setRecordsKey] = useState(0);
+  useEffect(() => {
+    if (params.view === 'reports' || params.view === 'requests') setView(params.view);
+  }, [params.view]);
   const [bucket, setBucket] = useState<ApptBucket>('upcoming');
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -133,8 +153,10 @@ export default function Activity() {
   useFocusEffect(
     useCallback(() => {
       setBucket('upcoming');
-      void load();
-    }, [load])
+      // A guest has no appointments to fetch, and asking would raise the
+      // "please log in" alert on a screen that already says so.
+      if (isAuthenticated) void load();
+    }, [load, isAuthenticated])
   );
 
   const counts = useMemo(() => {
@@ -235,17 +257,23 @@ export default function Activity() {
 
   return (
     <View style={styles.root}>
-      <ScreenHeader title={t('ui.activity.title')} back={false} />
+      <ScreenHeader title={t('ui.myCare.title')} back={false} />
 
+      {!isAuthenticated ? (
+        <Screen withNav>
+          <GuestGate />
+        </Screen>
+      ) : (
       <Screen
         withNav
         refreshing={refreshing}
         onRefresh={() => {
           setRefreshing(true);
-          void load();
+          if (view === 'reports') setRecordsKey((k) => k + 1);
+          else void load();
         }}
       >
-        {/* Appointments | Requests */}
+        {/* Appointments | Requests | Reports */}
         <View style={styles.tabs}>
           <Pressable
             onPress={() => setView('appointments')}
@@ -272,6 +300,19 @@ export default function Activity() {
             >
               {t('ui.activity.requests')}
               {openCount > 0 ? ` · ${openCount}` : ''}
+            </Txt>
+          </Pressable>
+          <Pressable
+            onPress={() => setView('reports')}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: view === 'reports' }}
+            style={[styles.tab, view === 'reports' && styles.tabOn]}
+          >
+            <Txt
+              variant="helper"
+              color={view === 'reports' ? PALETTE.midnight : TEXT.muted}
+            >
+              {t('ui.myCare.reports')}
             </Txt>
           </Pressable>
         </View>
@@ -514,7 +555,7 @@ export default function Activity() {
               })
             )}
           </>
-        ) : (
+        ) : view === 'requests' ? (
           <>
             {state === 'loading' ? (
               <SkeletonList count={3} lines={3} />
@@ -535,8 +576,16 @@ export default function Activity() {
               ))
             )}
           </>
-        )}
+        ) : null}
+
+        {view === 'reports' ? (
+          <RecordsList
+            reloadKey={recordsKey}
+            onSettled={() => setRefreshing(false)}
+          />
+        ) : null}
       </Screen>
+      )}
 
       <RescheduleSheet
         appointment={rescheduling}

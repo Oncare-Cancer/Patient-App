@@ -37,6 +37,8 @@ export const en = {
     },
 
     nav: {
+      discover: 'Discover',
+      myCare: 'My Care',
       home: 'Home',
       activity: 'Activity',
       /** Replaced Activity in the bottom bar; Activity moved into Profile. */
@@ -192,6 +194,12 @@ export const en = {
     },
 
     home: {
+      // Round 7: Home opens for everyone, services first.
+      loginStripTitle: 'Already an Oncare patient?',
+      loginStripBody: 'Log in to see your reports and appointments',
+      bookTileTitle: 'Book a consultation',
+      bookTileBody: 'Nearest centre, the right doctor, in a few taps',
+      ourCentres: 'Our centres',
       greetingMorning: 'Good morning,',
       greetingAfternoon: 'Good afternoon,',
       greetingEvening: 'Good evening,',
@@ -272,6 +280,31 @@ export const en = {
     },
 
     booking: {
+      // Round 7: location-first booking, and the guest request path.
+      findingNearest: 'Finding the centre nearest to you…',
+      nearestCentre: 'Nearest centre · {{km}} km',
+      lastCentre: 'Your last centre',
+      changeCentre: 'Change centre',
+      chooseCity: 'Choose your city',
+      delhiNcr: 'Delhi NCR',
+      bengaluru: 'Bengaluru',
+      kmAway: '{{km}} km away',
+      locationOff: 'Location is off, so choose your centre below.',
+      tooFar: 'There is no Oncare centre within 50 km of you. Choose one below.',
+      guestTitle: 'Request a consultation',
+      guestBody: 'Tell us what suits you. Our team will call to confirm the exact time.',
+      preferredDay: 'Preferred day',
+      preferredTime: 'Preferred time',
+      morningHint: '9 am – 12 pm',
+      afternoonHint: '12 – 4 pm',
+      eveningHint: '4 – 8 pm',
+      yourDetails: 'Your details',
+      sendRequest: 'Send request',
+      requestSentTitle: 'Request received',
+      requestSentBody: 'Our team will call you on {{phone}} to confirm your appointment.',
+      requestId: 'Request ID',
+      loginForSlots: 'Have an Oncare account? Log in to pick an exact slot',
+      stepDetails: 'Details',
       centreDetails: 'Centre details',
       title: 'Book appointment',
       stepCentre: 'Centre',
@@ -588,6 +621,44 @@ export const en = {
      * are absent entirely, so these states needed wording. The rule they follow:
      * say who resolves it, never imply the request is stuck.
      */
+    myCare: {
+      title: 'My Care',
+      reports: 'Reports',
+      guestTitle: 'Your care, in one place',
+      guestBody: 'Log in with the mobile number you gave at the centre to see your appointments, requests and reports.',
+      profileGuestTitle: 'You are browsing as a guest',
+      profileGuestBody: 'Log in to see your details, appointments and reports.',
+    },
+    discover: {
+      title: 'Discover',
+      subtitle: 'Cancer care, explained by our doctors',
+      articles: 'Articles',
+      videos: 'Videos',
+      shorts: 'Shorts',
+      fullVideos: 'Full videos',
+      centres: 'Our centres',
+      doctors: 'Our doctors',
+      faqs: 'FAQs',
+      faqsBody: 'Answers to what patients ask us most',
+      seeAll: 'See all',
+      readMin: '{{min}} min read',
+      writtenBy: 'Written and verified by',
+      yearsExp: '{{years}}+ years experience',
+      readNext: 'Read next',
+      moreVideos: 'More videos',
+      anyQuery: 'Any query?',
+      bookNow: 'Book now',
+      noArticles: 'No articles here yet',
+      noVideos: 'No videos here yet',
+      loadMore: 'Load more',
+      share: 'Share',
+      queryTitle: 'Ask our care team',
+      queryBody: 'Leave your number and, if you like, your question. Our team will call you back.',
+      queryPlaceholder: 'Your question (optional)',
+      querySend: 'Request a call back',
+      querySent: 'Thank you. Our team will call you shortly.',
+      swipeUp: 'Swipe up for the next one',
+    },
     faq: {
       // NOT IN PDF — the mockups show the Help rows but not this screen.
       empty: 'No help topics yet',

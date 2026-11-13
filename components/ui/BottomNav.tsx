@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, Compass, FileText, User, Plus } from 'lucide-react-native';
+import { Home, Compass, HeartPulse, User, Plus } from 'lucide-react-native';
 import { Txt } from './Txt';
 import { useT } from '@/contexts/LanguageContext';
 import {
@@ -19,14 +19,32 @@ import type { StringKey } from '@/constants/i18n';
  * any other, so it needs an active state, but it renders as the raised circle
  * rather than a tab.
  */
-type TabKey = 'home' | 'explore' | 'book' | 'records' | 'profile';
+type TabKey = 'home' | 'discover' | 'book' | 'myCare' | 'profile';
 
 /**
- * Explore sits where Activity used to.
+ * Where each tab goes. One table for the tabs layout AND GuestNav, so the two
+ * bars can never send the same tap to different places again - which is how
+ * a guest on Discover used to tap Home and land on the login wall.
  *
- * Activity is the patient's own appointments and requests, which belongs with
- * the rest of their records under Profile. A tab is better spent on browsing
- * centres and doctors, which is also the one section a guest can use fully.
+ *   Home      services, and "your next step" once signed in
+ *   Discover  articles, videos, centres, doctors, FAQs (was Explore)
+ *   Book      consultation booking only
+ *   My Care   appointments, requests and reports in one place
+ *   Profile   details and settings; a login prompt for a guest
+ */
+const TAB_ROUTES = {
+  home: '/(tabs)',
+  discover: '/(tabs)/explore',
+  book: '/(tabs)/book',
+  myCare: '/(tabs)/appointments',
+  profile: '/(tabs)/profile',
+} as const satisfies Record<TabKey, string>;
+
+/**
+ * Each tab has one job (round 7). Search, Explore and the Home search box used
+ * to be three ways into the same doctor list; now finding a doctor lives in
+ * Book, browsing lives in Discover, and the patient's own records - which
+ * were split across Records and a Profile-only Activity screen - are one tab.
  */
 const TABS: {
   key: Exclude<TabKey, 'book'>;
@@ -34,17 +52,17 @@ const TABS: {
   Icon: typeof Home;
 }[] = [
   { key: 'home', labelKey: 'ui.nav.home', Icon: Home },
-  { key: 'explore', labelKey: 'ui.nav.explore', Icon: Compass },
-  { key: 'records', labelKey: 'ui.nav.records', Icon: FileText },
+  { key: 'discover', labelKey: 'ui.nav.discover', Icon: Compass },
+  { key: 'myCare', labelKey: 'ui.nav.myCare', Icon: HeartPulse },
   { key: 'profile', labelKey: 'ui.nav.profile', Icon: User },
 ];
 
 /**
- * Floating navy bar: Home · Activity · Book (white +) · Records · Profile.
+ * Floating navy bar: Home · Discover · Book (white +) · My Care · Profile.
  *
  * The Book button is a raised white circle that overhangs the bar, so it reads
  * as the primary action rather than a fifth tab — which is why it sits between
- * Activity and Records in the layout but is not part of the TABS list.
+ * Discover and My Care in the layout but is not part of the TABS list.
  *
  * The active tab carries a small pink dot under its label, matching the design.
  */
@@ -201,3 +219,4 @@ const styles = StyleSheet.create({
 });
 
 export type { TabKey };
+export { TAB_ROUTES };

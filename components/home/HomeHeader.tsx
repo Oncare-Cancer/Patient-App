@@ -3,7 +3,7 @@ import { View, Pressable, StyleSheet, Linking, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bell, PhoneCall } from 'lucide-react-native';
-import { Logo, SosPill, Txt } from '@/components/ui';
+import { Btn, Logo, SosPill, Txt } from '@/components/ui';
 import { useT } from '@/contexts/LanguageContext';
 import { SUPPORT_NUMBER } from '@/constants/contact';
 import {
@@ -30,8 +30,14 @@ function greetingKey(): 'greetingMorning' | 'greetingAfternoon' | 'greetingEveni
 }
 
 /**
- * The signed-in home header (A4): logo, notifications, call, SOS, then the
- * greeting, patient name, Hospital ID chip and avatar.
+ * The home header (A4): logo, notifications, call, SOS, then the greeting,
+ * patient name, Hospital ID chip and avatar.
+ *
+ * `guest` (round 7): Home is the same screen for everyone now, so a guest gets
+ * this header too - "Hello, Guest" and a Login button where the avatar sits,
+ * and no bell, because a guest has no notifications. The Login button is
+ * always visible here, which is the first of the three ways in an existing
+ * patient has (with the Home strip and the My Care / Profile tabs).
  *
  * Extra bottom padding leaves room for the "Book a consultation" card to sit
  * over the header's rounded edge, which is how the design stitches the two
@@ -42,11 +48,15 @@ export function HomeHeader({
   hospitalId,
   unreadCount,
   onNotifications,
+  guest,
+  onLogin,
 }: {
   name: string;
   hospitalId?: string;
   unreadCount?: number;
   onNotifications: () => void;
+  guest?: boolean;
+  onLogin?: () => void;
 }) {
   const t = useT();
   const insets = useSafeAreaInsets();
@@ -74,16 +84,18 @@ export function HomeHeader({
       <View style={styles.topRow}>
         <Logo height={22} />
         <View style={styles.actions}>
-          <Pressable
-            onPress={onNotifications}
-            accessibilityRole="button"
-            accessibilityLabel="Notifications"
-            hitSlop={8}
-            style={styles.iconBtn}
-          >
-            <Bell size={14} color={TEXT.onDark} strokeWidth={2.2} />
-            {unreadCount ? <View style={styles.badge} /> : null}
-          </Pressable>
+          {guest ? null : (
+            <Pressable
+              onPress={onNotifications}
+              accessibilityRole="button"
+              accessibilityLabel="Notifications"
+              hitSlop={8}
+              style={styles.iconBtn}
+            >
+              <Bell size={14} color={TEXT.onDark} strokeWidth={2.2} />
+              {unreadCount ? <View style={styles.badge} /> : null}
+            </Pressable>
+          )}
           <Pressable
             onPress={call}
             accessibilityRole="button"
@@ -100,11 +112,11 @@ export function HomeHeader({
       <View style={styles.greetRow}>
         <View style={styles.greetCol}>
           <Txt variant="helper" color={TEXT.onDarkMuted}>
-            {t(`ui.home.${greetingKey()}`)}
+            {guest ? t('ui.guest.welcome') : t(`ui.home.${greetingKey()}`)}
           </Txt>
           {/* Patient name is personal data in whatever script it was entered. */}
           <Txt variant="titleLg" color={TEXT.onDark} numberOfLines={1}>
-            {name}
+            {guest ? t('ui.guest.helloGuest') : name}
           </Txt>
           {hospitalId ? (
             <View style={styles.idChip}>
@@ -115,11 +127,21 @@ export function HomeHeader({
           ) : null}
         </View>
 
-        <View style={styles.avatar}>
-          <Txt variant="section" color={TEXT.onDark} script="latin">
-            {initials(name)}
-          </Txt>
-        </View>
+        {guest ? (
+          <Btn
+            label={t('ui.login.login')}
+            variant="gradient"
+            compact
+            block={false}
+            onPress={onLogin}
+          />
+        ) : (
+          <View style={styles.avatar}>
+            <Txt variant="section" color={TEXT.onDark} script="latin">
+              {initials(name)}
+            </Txt>
+          </View>
+        )}
       </View>
     </LinearGradient>
   );
