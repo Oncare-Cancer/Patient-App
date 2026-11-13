@@ -110,6 +110,12 @@ export const createAppointment = (params: {
   locationId: string;
   dateTime: string;
   visitTypeName: string;
+  /**
+   * The patient's approximate location. Stored in OUR appointment record
+   * only - the backend builds the Docpulse call field by field, so this can
+   * never reach Docpulse.
+   */
+  location?: { lat: number; lng: number; accuracy?: number; capturedAt: string };
 }) => retry(() => post<any>('create-appointment', params));
 
 /* ------------------------------------------------------------------- derived */

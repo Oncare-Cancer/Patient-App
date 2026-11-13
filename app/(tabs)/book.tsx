@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Btn, Screen, ScreenHeader, StepProgress } from '@/components/ui';
 import { CentreStep } from '@/components/booking/CentreStep';
 import { DoctorStep } from '@/components/booking/DoctorStep';
+import { GuestBooking, CentreBanner } from '@/components/booking/GuestBooking';
 import { SlotStep } from '@/components/booking/SlotStep';
 import { ReviewStep } from '@/components/booking/ReviewStep';
 import { ConfirmedStep } from '@/components/booking/ConfirmedStep';
@@ -28,6 +29,13 @@ import { formatWhen } from '@/services/appointments';
 import { matchCentre, openDirections } from '@/services/directions';
 import { getCentres, type Centre } from '@/services/catalog';
 import { toastError } from '@/utils/toast';
+import {
+  centresByDistance,
+  getApproxLocation,
+  nearestCentre,
+  rememberCentre,
+  rememberedCentreId,
+} from '@/services/location';
 import { NAV_CLEARANCE, SPACE, SURFACE } from '@/constants/theme';
 
 /**
@@ -67,7 +75,21 @@ const NEXT_SLOT_LOOKAHEAD_DAYS = 3;
 const SLOT_PROBE_CONCURRENCY = 4;
 
 
+/**
+ * Book: the real Docpulse booking for a patient, a consultation request for
+ * a guest.
+ *
+ * Docpulse's booking endpoints all require a session (401 without a token),
+ * so a guest never mounts the patient flow - it would fail on its first
+ * request. See components/booking/GuestBooking.tsx. When a guest logs in from
+ * there, this re-renders as the patient flow with the same centre and doctor.
+ */
 export default function Book() {
+  const { isAuthenticated, patient } = useAuth();
+  return isAuthenticated && patient ? <PatientBook /> : <GuestBooking />;
+}
+
+function PatientBook() {
   const t = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -118,6 +140,20 @@ export default function Book() {
   const [submitting, setSubmitting] = useState(false);
   const [bookingId, setBookingId] = useState('');
 
+  /*
+   * Location-first centre choice (round 7). Book opens straight on a centre's
+   * doctors when it can: the patient's last centre, else the nearest one
+   * within 50 km. The centre list (step 0) is the fallback, with distances
+   * when a location is known.
+   */
+  const [why, setWhy] = useState<{ kind: 'nearest' | 'last' | 'picked'; km?: number }>({
+    kind: 'picked',
+  });
+  /** Docpulse locationId -> km from the patient. */
+  const [distances, setDistances] = useState<Record<string, number>>({});
+  const [notice, setNotice] = useState<string | undefined>();
+  const [locating, setLocating] = useState(false);
+
 
   // The CMS centre master, for Directions on the confirmation screen. Public
   // and cached server-side; a failure only costs the Directions button.
@@ -139,22 +175,6 @@ export default function Book() {
 
   /* ---------------------------------------------------------------- doctors */
 
-  const loadDoctors = useCallback(
-    async (loc: Location) => {
-      setLoadingDoctors(true);
-      setNextFree({});
-      try {
-        const list = (await getPractitioners(loc.id)).map(practitionerOf);
-        setDoctors(list);
-      } catch {
-        setDoctors([]);
-        toastError(t('ui.common.somethingWrong'), t('ui.common.retry'));
-      } finally {
-        setLoadingDoctors(false);
-      }
-    },
-    [t]
-  );
 
   /**
    * Fills in each doctor's next available slot.
@@ -224,6 +244,72 @@ export default function Book() {
       }
     },
     [t]
+  );
+
+  /**
+   * Selects a centre and moves on to its doctors - the same as tapping a row
+   * on the centre step, which is what it replaces when the centre is known.
+   * A doctor named by the page the patient came from is matched once the
+   * centre's practitioners load.
+   */
+  const chooseCentre = useCallback(
+    async (loc: Location, how: { kind: 'nearest' | 'last' | 'picked'; km?: number }) => {
+      setCentre(loc);
+      setWhy(how);
+      setDoctor(null);
+      setVisitTypes([]);
+      setVisitType(null);
+      setSlots([]);
+      setSlot(null);
+      setStep(1);
+      setLoadingDoctors(true);
+      setNextFree({});
+      try {
+        const list = (await getPractitioners(loc.id)).map(practitionerOf);
+        setDoctors(list);
+        const named = resume.doctorName
+          ? list.find((d) => sameName(d.name, resume.doctorName!))
+          : null;
+        if (named) {
+          setDoctor(named);
+          await loadVisitTypes(loc, named);
+          setStep(2);
+        }
+      } catch {
+        setDoctors([]);
+        toastError(t('ui.common.somethingWrong'), t('ui.common.retry'));
+      } finally {
+        setLoadingDoctors(false);
+      }
+    },
+    [resume.doctorName, loadVisitTypes, t]
+  );
+
+  /** Finds the nearest bookable centre; falls back to the list with a reason. */
+  const locateNearest = useCallback(
+    async (force: boolean) => {
+      setLocating(true);
+      const here = await getApproxLocation({ force });
+      setLocating(false);
+      if (!here) {
+        setNotice(t('ui.booking.locationOff'));
+        return;
+      }
+      const km: Record<string, number> = {};
+      centresByDistance(centres, here).forEach(({ centre: c, km: d }) => {
+        if (d !== null && c.locationId) km[c.locationId] = d;
+      });
+      setDistances(km);
+      const near = nearestCentre(centres, here);
+      const loc = near ? locations.find((l) => l.id === near.centre.locationId) : null;
+      if (!near || !loc) {
+        setNotice(t('ui.booking.tooFar'));
+        return;
+      }
+      setNotice(undefined);
+      void chooseCentre(loc, { kind: 'nearest', km: near.km });
+    },
+    [centres, locations, chooseCentre, t]
   );
 
   /* ------------------------------------------------------------------ slots */
@@ -319,18 +405,47 @@ export default function Book() {
     })();
   }, [locations, resume, loadVisitTypes]);
 
+  /**
+   * Opens on a centre when no page chose one: last centre, else nearest.
+   *
+   * Skipped when the patient arrived with a centre (a centre page, or the
+   * login resume) - the resume effect above owns that case.
+   */
+  const autoPickedRef = React.useRef(false);
+  useEffect(() => {
+    if (autoPickedRef.current) return;
+    if (locations.length === 0 || centres.length === 0) return;
+    autoPickedRef.current = true;
+    if (resume.resumeCentreId || resume.centreId || resume.resumeDoctorId) return;
+    (async () => {
+      const last = await rememberedCentreId();
+      const lastLoc = last ? locations.find((l) => l.id === last) : null;
+      if (lastLoc) {
+        void chooseCentre(lastLoc, { kind: 'last' });
+        return;
+      }
+      await locateNearest(false);
+    })();
+  }, [locations, centres, resume, chooseCentre, locateNearest]);
+
   /* ----------------------------------------------------------------- submit */
 
   const confirm = async () => {
     if (!centre || !doctor || !visitType || !slot || submitting) return;
     setSubmitting(true);
     try {
+      // Already cached from opening Book in almost every case, so this costs
+      // nothing; it never prompts here and never delays the booking for long.
+      const location = await getApproxLocation({ prompt: false, timeoutMs: 1500 });
       const res = await createAppointment({
         practitionerId: doctor.id,
         locationId: centre.id,
         dateTime: slot,
         visitTypeName: visitType,
+        ...(location ? { location } : {}),
       });
+      // Next time Book opens straight on this centre.
+      void rememberCentre(centre.id);
 
       setBookingId(
         String(res?.appointmentId ?? res?.id ?? res?.bookingId ?? '—')
@@ -428,19 +543,33 @@ export default function Book() {
         {step === 0 ? (
           <CentreStep
             locations={locations}
-            loading={loadingLocations}
+            loading={loadingLocations || (locating && !notice)}
             selected={centre}
-            onSelect={(l) => {
-              setCentre(l);
-              // Changing the centre invalidates everything downstream.
-              setDoctor(null);
-              setVisitTypes([]);
-              setVisitType(null);
-              setSlots([]);
-              setSlot(null);
-              void loadDoctors(l);
-              // Straight on — picking one of nine centres needs no confirming.
-              setStep(1);
+            distances={distances}
+            notice={notice}
+            locating={locating}
+            onUseLocation={
+              notice === t('ui.booking.locationOff') ? () => void locateNearest(true) : undefined
+            }
+            // Straight on — picking one of nine centres needs no confirming.
+            onSelect={(l) => void chooseCentre(l, { kind: 'picked' })}
+          />
+        ) : null}
+
+        {step === 1 && centre ? (
+          <CentreBanner
+            name={centre.label}
+            line={
+              why.kind === 'nearest'
+                ? t('ui.booking.nearestCentre', { km: why.km ?? 0 })
+                : why.kind === 'last'
+                ? t('ui.booking.lastCentre')
+                : undefined
+            }
+            changeLabel={t('ui.booking.changeCentre')}
+            onChange={() => {
+              setNotice(undefined);
+              setStep(0);
             }}
           />
         ) : null}

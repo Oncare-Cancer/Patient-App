@@ -304,6 +304,8 @@ export const en = {
       requestSentBody: 'Our team will call you on {{phone}} to confirm your appointment.',
       requestId: 'Request ID',
       loginForSlots: 'Have an Oncare account? Log in to pick an exact slot',
+      anyDoctor: 'Any doctor at this centre',
+      anyDoctorHint: 'Our team will match you with a doctor who is free',
       stepDetails: 'Details',
       centreDetails: 'Centre details',
       title: 'Book appointment',

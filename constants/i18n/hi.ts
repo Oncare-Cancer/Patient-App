@@ -278,6 +278,8 @@ export const hi: Omit<Strings, 'legal' | 'clinical'> = {
       requestSentBody: 'अपॉइंटमेंट पक्का करने के लिए हमारी टीम आपको {{phone}} पर कॉल करेगी।',
       requestId: 'अनुरोध ID',
       loginForSlots: 'Oncare अकाउंट है? सही स्लॉट चुनने के लिए लॉग इन करें',
+      anyDoctor: 'इस सेंटर का कोई भी डॉक्टर',
+      anyDoctorHint: 'हमारी टीम उपलब्ध डॉक्टर से मिलवाएगी',
       stepDetails: 'जानकारी',
       centreDetails: 'सेंटर की जानकारी',
       title: 'अपॉइंटमेंट बुक करें',
