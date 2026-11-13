@@ -8,6 +8,7 @@ import {
   DEVICE_DATA,
   fetchWrapper,
 } from '@/utils/fetchWrapper';
+import { existingGuestDeviceKey } from '@/services/guestIdentity';
 
 let messaging: any = null;
 
@@ -278,6 +279,57 @@ export const saveFCMTokenToAPI = async (fcmToken: string): Promise<boolean> => {
   }
 };
 
+/* ------------------------------------------------------------------ guests */
+
+/**
+ * Files this device's push token for its guest requests.
+ *
+ * A guest has no session, so the token is filed under the device key the
+ * guest requests were sent with (services/guestIdentity.ts); the team moving
+ * one of those requests then reaches this phone as a push. No key - this
+ * device has never sent a guest request - means nothing to file, and no call.
+ */
+export const saveGuestPushToken = async (fcmToken: string): Promise<boolean> => {
+  try {
+    const guestKey = await existingGuestDeviceKey();
+    if (!fcmToken || !guestKey) return false;
+    await fetchWrapper<any>('/requests/guest/push-token', {
+      method: 'POST',
+      body: { guestKey, fcmToken },
+      skipAuth: true,
+    });
+    return true;
+  } catch (error) {
+    console.error('Error saving guest push token:', error);
+    return false;
+  }
+};
+
+/**
+ * Asks for notification permission and files the token, right after a guest
+ * sends a request - the moment "we will let you know" means something.
+ * Never throws and never holds up the request it follows.
+ */
+export const enableGuestPush = async (): Promise<void> => {
+  try {
+    const token = await registerForPushNotifications();
+    if (token) await saveGuestPushToken(token);
+  } catch {
+    // Push is a courtesy on top of the call-back the guest was promised.
+  }
+};
+
+/** True when the OS has already granted notifications (asks nothing). */
+export const pushAlreadyGranted = async (): Promise<boolean> => {
+  if (Platform.OS === 'web') return false;
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    return status === 'granted';
+  } catch {
+    return false;
+  }
+};
+
 export const initializeFCMAndSendToken = async () => {
   if (Platform.OS === 'web') {
     return;
@@ -289,7 +341,10 @@ export const initializeFCMAndSendToken = async () => {
     if (messaging && !isExpoGo) {
       messaging().onTokenRefresh(async (newToken: string) => {
         console.log('FCM Token refreshed:', newToken);
-        await saveFCMTokenToAPI(newToken);
+        // A signed-in patient files it on their account; otherwise it is a
+        // guest device, and it is filed for its guest requests.
+        const saved = await saveFCMTokenToAPI(newToken);
+        if (!saved) await saveGuestPushToken(newToken);
       });
 
       messaging().setBackgroundMessageHandler(async (remoteMessage: any) => {

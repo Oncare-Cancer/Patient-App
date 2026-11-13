@@ -46,13 +46,23 @@ const TYPE_LABEL: Record<string, StringKey> = {
   consultation: 'ui.guest.consultation',
 };
 
+/** "2026-11-13T11:44:21.000Z" -> "13 Nov, 5:14 pm" (the server stores ISO). */
+function when(iso?: string): string | undefined {
+  if (!iso) return undefined;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const date = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  const time = d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return `${date}, ${time}`;
+}
+
 function stepsFor(req: OpsRequest, t: (k: StringKey) => string): TimelineStep[] {
   // A closed request stops wherever it stopped — showing the rest of the
   // ladder greyed would imply it is still moving.
   if (req.status === 'closed') {
     return req.timeline.map((e, i) => ({
       label: t(STATUS_LABEL[e.status]),
-      at: e.at,
+      at: when(e.at),
       done: true,
       current: i === req.timeline.length - 1,
     }));
@@ -63,7 +73,7 @@ function stepsFor(req: OpsRequest, t: (k: StringKey) => string): TimelineStep[] 
 
   return LADDER.map((status, i) => ({
     label: t(STATUS_LABEL[status]),
-    at: reachedAt.get(status),
+    at: when(reachedAt.get(status)),
     done: i < currentIndex,
     current: i === currentIndex,
   }));

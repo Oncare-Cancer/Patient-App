@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Pressable,
@@ -183,6 +183,27 @@ export default function Activity() {
       void load();
     }, [load])
   );
+
+  /**
+   * A tab switch is a fresh look, so it fetches again: a request the team
+   * moved to "Called" a minute ago should show as called when the patient
+   * flips to Requests, not wait for a pull-to-refresh. The first render is
+   * skipped because the focus effect above has just loaded.
+   */
+  const firstView = useRef(true);
+  useEffect(() => {
+    if (firstView.current) {
+      firstView.current = false;
+      return;
+    }
+    if (view === 'reports') {
+      if (isAuthenticated) setRecordsKey((k) => k + 1);
+    } else {
+      void load();
+    }
+    // Only on a tab change; `load` changing (login/logout) is the focus effect's job.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
 
   const counts = useMemo(() => {
     const c: Record<ApptBucket, number> = { upcoming: 0, past: 0, cancelled: 0 };

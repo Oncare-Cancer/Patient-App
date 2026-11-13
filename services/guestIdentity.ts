@@ -60,6 +60,15 @@ export async function rememberGuestContact(c: GuestContact): Promise<void> {
   }
 }
 
+/** The key if this device has sent a guest request, without making one. */
+export async function existingGuestDeviceKey(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(KEY);
+  } catch {
+    return null;
+  }
+}
+
 /** This device's random key, made on first use. 32 bytes, hex. */
 export async function guestDeviceKey(): Promise<string | undefined> {
   try {

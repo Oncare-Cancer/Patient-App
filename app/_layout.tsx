@@ -11,7 +11,14 @@ import { LanguageProvider } from '../contexts/LanguageContext';
 import { SosProvider } from '../contexts/SosContext';
 import Toast from 'react-native-toast-message';
 
-import { initializeNotifications, initializeFCMAndSendToken, cleanupListeners } from '../services/notifications';
+import {
+  initializeNotifications,
+  initializeFCMAndSendToken,
+  cleanupListeners,
+  pushAlreadyGranted,
+  saveGuestPushToken,
+} from '../services/notifications';
+import { existingGuestDeviceKey } from '../services/guestIdentity';
 
 // === CONFIG: Change this URL to your dynamic splash image ===
 const REMOTE_SPLASH_URL = 'https://www.oncarecancer.com/img/featured/2025-10-30%2C13%3A35%3A28.195Z-1024.png'; // Replace with your URL
@@ -165,6 +172,28 @@ function RootLayoutNav() {
     prepare();
   }, [isAuthenticated, loading, patient, segments]);
 
+  /** Where a tapped notification opens. Shared by patients and guests. */
+  const onNotificationOpened = (response: any) => {
+    console.log('Notification clicked:', response);
+    const title = response.notification.request.content.title?.toLowerCase() || '';
+    const body = response.notification.request.content.body?.toLowerCase() || '';
+    const combinedText = title + ' ' + body;
+    const data = response.notification.request.content.data || {};
+    // A request moving along ("Called", "Scheduled", ...) carries its id.
+    if (data.requestId) {
+      router.push({ pathname: '/(tabs)/appointments', params: { view: 'requests' } } as never);
+      return;
+    }
+    if (
+      combinedText.includes('document') ||
+      combinedText.includes('report') ||
+      combinedText.includes('prescription') ||
+      data.type === 'document_upload'
+    ) {
+      router.push('/(tabs)/documents');
+    }
+  };
+
   // Initialize notifications when authenticated
   useEffect(() => {
     if (isAuthenticated && patient && !notificationsInitialized.current) {
@@ -175,23 +204,7 @@ function RootLayoutNav() {
         onNotificationReceived: (notification) => {
           console.log('Notification received (foreground):', notification);
         },
-        onNotificationOpened: (response) => {
-          console.log('Notification clicked:', response);
-
-          const title = response.notification.request.content.title?.toLowerCase() || '';
-          const body = response.notification.request.content.body?.toLowerCase() || '';
-          const combinedText = title + ' ' + body;
-          const data = response.notification.request.content.data || {};
-
-          if (
-            combinedText.includes('document') ||
-            combinedText.includes('report') ||
-            combinedText.includes('prescription') ||
-            data.type === 'document_upload'
-          ) {
-            router.push('/(tabs)/documents');
-          }
-        },
+        onNotificationOpened,
       });
 
       notificationsInitialized.current = true;
@@ -205,6 +218,32 @@ function RootLayoutNav() {
       }
     };
   }, [isAuthenticated, patient, router]);
+
+  /**
+   * A guest who has sent a request from this phone and allowed notifications
+   * gets the same listeners (foreground display, tap to My Care), and the
+   * token is re-filed in case it rotated. Never asks for permission here:
+   * that happens once, right after their first request.
+   */
+  useEffect(() => {
+    if (loading || isAuthenticated) return;
+    let alive = true;
+    void (async () => {
+      const [key, granted] = await Promise.all([existingGuestDeviceKey(), pushAlreadyGranted()]);
+      if (!alive || !key || !granted) return;
+      const token = await initializeNotifications({
+        onNotificationReceived: (notification) => {
+          console.log('Notification received (foreground):', notification);
+        },
+        onNotificationOpened,
+      });
+      if (token) await saveGuestPushToken(token);
+    })();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, isAuthenticated]);
 
   // Show remote splash until it's loaded
   if (showRemoteSplash) {

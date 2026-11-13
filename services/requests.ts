@@ -1,6 +1,7 @@
 import { fetchWrapper } from '@/utils/fetchWrapper';
 import { getApproxLocation, type ApproxLocation } from '@/services/location';
 import { guestDeviceKey, rememberGuestContact } from '@/services/guestIdentity';
+import { enableGuestPush } from '@/services/notifications';
 
 /**
  * Ops requests — the tickets behind sections 12 to 17.
@@ -157,6 +158,8 @@ export async function requestCallBack(body: {
     skipAuth: true,
   });
   await rememberGuestContact({ name: body.name, phone: body.mobile, countryCode: body.countryCode ?? '91' });
+  // Not awaited: the permission prompt must not hold up the success screen.
+  void enableGuestPush();
   return { requestId: res?.data?.requestId ?? '' };
 }
 
@@ -241,6 +244,8 @@ export async function createGuestRequest(body: {
     skipAuth: true,
   });
   await rememberGuestContact({ name: body.name, phone: body.phone, countryCode: body.countryCode ?? '91' });
+  // Not awaited: the permission prompt must not hold up the success screen.
+  void enableGuestPush();
   return { requestId: res?.data?.requestId ?? '' };
 }
 
