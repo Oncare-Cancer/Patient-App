@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   View,
   Image,
   FlatList,
@@ -36,6 +37,9 @@ export default function Shorts() {
 
   const [shorts, setShorts] = useState<Video[]>([]);
   const [active, setActive] = useState(0);
+  /** Where the pager opens; fixed once the list arrives. */
+  const [startIndex, setStartIndex] = useState(0);
+  const [loaded, setLoaded] = useState(false);
   const [hint, setHint] = useState(true);
   const listRef = useRef<FlatList<Video>>(null);
 
@@ -45,13 +49,13 @@ export default function Shorts() {
         const list = videos.filter(
           (v) => v.short && (!params.category || params.category === 'all' || v.category === params.category)
         );
-        setShorts(list);
         const start = Math.max(0, list.findIndex((v) => v.slug === params.start));
+        setShorts(list);
+        setStartIndex(start);
         setActive(start);
-        // After layout, so the list knows its page height.
-        setTimeout(() => listRef.current?.scrollToIndex({ index: start, animated: false }), 0);
+        setLoaded(true);
       })
-      .catch(() => {});
+      .catch(() => setLoaded(true));
     // Read once, on arrival.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -84,23 +88,34 @@ export default function Shorts() {
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
-      <FlatList
-        ref={listRef}
-        data={shorts}
-        keyExtractor={(v) => v.id}
-        renderItem={renderItem}
-        pagingEnabled
-        showsVerticalScrollIndicator={false}
-        decelerationRate="fast"
-        snapToInterval={height}
-        getItemLayout={(_, index) => ({ length: height, offset: height * index, index })}
-        onViewableItemsChanged={onViewable}
-        viewabilityConfig={viewability}
-        windowSize={3}
-        initialNumToRender={1}
-        maxToRenderPerBatch={2}
-        onScrollToIndexFailed={() => {}}
-      />
+      {/* Mounted once the list is here, so it can open on the tapped short with
+          initialScrollIndex. Scrolling to it afterwards raced the first render:
+          on web the list still had no items and threw "scrollToIndex out of
+          range". */}
+      {loaded && shorts.length ? (
+        <FlatList
+          ref={listRef}
+          data={shorts}
+          initialScrollIndex={startIndex}
+          keyExtractor={(v) => v.id}
+          renderItem={renderItem}
+          pagingEnabled
+          showsVerticalScrollIndicator={false}
+          decelerationRate="fast"
+          snapToInterval={height}
+          getItemLayout={(_, index) => ({ length: height, offset: height * index, index })}
+          onViewableItemsChanged={onViewable}
+          viewabilityConfig={viewability}
+          windowSize={3}
+          initialNumToRender={1}
+          maxToRenderPerBatch={2}
+          onScrollToIndexFailed={() => {}}
+        />
+      ) : !loaded ? (
+        <View style={styles.loading}>
+          <ActivityIndicator color={PALETTE.white} />
+        </View>
+      ) : null}
 
       {/* Back, over the video. */}
       <Pressable
@@ -146,6 +161,7 @@ export default function Shorts() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000' },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   still: { width: '100%', height: '100%', opacity: 0.85 },
   back: {
     position: 'absolute',

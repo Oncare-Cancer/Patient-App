@@ -1,8 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Building2, ChevronRight, CircleHelp, Stethoscope } from 'lucide-react-native';
 import {
+  Building2,
+  ChevronRight,
+  CircleHelp,
+  MessageCircleQuestion,
+  Stethoscope,
+} from 'lucide-react-native';
+import {
+  Btn,
   Card,
   Screen,
   ScreenHeader,
@@ -12,6 +19,7 @@ import {
   Txt,
 } from '@/components/ui';
 import { BlogRow, ShortCard, VideoCard } from '@/components/discover/Cards';
+import { QuerySheet } from '@/components/discover/ContentCta';
 import { useLanguage, useT } from '@/contexts/LanguageContext';
 import { listBlogs, listVideos, type BlogCard, type Video } from '@/services/content';
 import { PALETTE, RADIUS, SPACE, SURFACE, TEXT } from '@/constants/theme';
@@ -24,8 +32,9 @@ import { PALETTE, RADIUS, SPACE, SURFACE, TEXT } from '@/constants/theme';
  * Book; this is for learning and browsing.
  *
  * Order: videos first (the library is large and the most watched), shorts as
- * a tall shelf, then articles in the app's language, then the directory and
- * FAQs. Every article and video ends in "Any query?" and "Book now".
+ * a tall shelf, articles in the app's language, the directory, FAQs, and
+ * "Any query?" last, for whoever got to the end without finding an answer.
+ * Every article and video also ends in "Any query?" and "Book now".
  *
  * No testimonials or patient reviews are added here (advertising-guideline
  * caution); the content is educational.
@@ -38,6 +47,7 @@ export default function Discover() {
   const [videos, setVideos] = useState<Video[] | null>(null);
   const [blogs, setBlogs] = useState<BlogCard[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
 
   const load = useCallback(async () => {
     // Independent: one failing must not hide the other.
@@ -195,7 +205,33 @@ export default function Discover() {
             <ChevronRight size={16} color={TEXT.muted} strokeWidth={2.2} />
           </Card>
         </Pressable>
+        {/* ---------------------------------------------------- any query */}
+        <Card tone="info" style={[styles.gap, styles.ask]}>
+          <View style={styles.askTop}>
+            <View style={styles.askIcon}>
+              <MessageCircleQuestion size={18} color={PALETTE.white} strokeWidth={2.2} />
+            </View>
+            <View style={styles.flex}>
+              <Txt variant="bodyMedium">{t('ui.discover.anyQuery')}</Txt>
+              <Txt variant="helperSm" color={TEXT.secondary}>
+                {t('ui.discover.queryBody')}
+              </Txt>
+            </View>
+          </View>
+          <Btn
+            label={t('ui.discover.querySend')}
+            compact
+            onPress={() => setAskOpen(true)}
+          />
+        </Card>
       </Screen>
+
+      <QuerySheet
+        visible={askOpen}
+        onClose={() => setAskOpen(false)}
+        origin={{ type: 'service', slug: 'discover', title: t('ui.discover.title') }}
+        topic="discover"
+      />
     </View>
   );
 }
@@ -229,4 +265,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   faq: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm },
+  ask: { gap: SPACE.sm },
+  askTop: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm },
+  askIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: PALETTE.midnight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

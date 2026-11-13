@@ -46,13 +46,17 @@ export default function VideoScreen() {
 
   return (
     <View style={styles.root}>
-      <ScreenHeader title={video?.category || t('ui.discover.videos')} />
+      {/* Black behind the header, so its rounded bottom corners run into the
+          black player instead of showing two off-white wedges above it. */}
+      <View style={video && !video.short ? styles.stage : undefined}>
+        <ScreenHeader title={video?.category || t('ui.discover.videos')} />
 
-      {video && !video.short ? (
-        // Outside the scroll view: the player stays put while the patient
-        // reads the description or picks the next video.
-        <YouTubePlayer key={video.id} id={video.id} autoplay />
-      ) : null}
+        {video && !video.short ? (
+          // Outside the scroll view: the player stays put while the patient
+          // reads the description or picks the next video.
+          <YouTubePlayer key={video.id} id={video.id} autoplay />
+        ) : null}
+      </View>
 
       <Screen scrollResetKey={String(slug)}>
         {failed ? (
@@ -111,6 +115,7 @@ export default function VideoScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: SURFACE.screen },
+  stage: { backgroundColor: '#000' },
   title: { color: PALETTE.midnight, marginBottom: SPACE.xxs },
   desc: { marginTop: SPACE.sm },
   yt: {
