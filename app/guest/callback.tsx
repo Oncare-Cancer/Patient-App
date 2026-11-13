@@ -7,13 +7,15 @@ import {
   Card,
   Chip,
   Field,
+  PhoneField,
   Screen,
   ScreenHeader,
   Txt,
 } from '@/components/ui';
 import { GuestNav } from '@/components/guest/GuestNav';
 import { useT } from '@/contexts/LanguageContext';
-import { requestCallBack } from '@/services/requests';
+import { requestCallBack, requestErrorMessage } from '@/services/requests';
+import { DEFAULT_COUNTRY_CODE, isValidPhone } from '@/utils/phone';
 import { toastError, toastSuccess } from '@/utils/toast';
 import {
   PALETTE,
@@ -40,6 +42,7 @@ export default function GuestCallback() {
 
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
+  const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_CODE);
   const [callingFor, setCallingFor] = useState<CallingFor>('myself');
   const [topic, setTopic] = useState<Topic>('consultation');
   const [city, setCity] = useState<City>('DELHI/NCR');
@@ -47,7 +50,7 @@ export default function GuestCallback() {
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
 
-  const valid = name.trim().length > 1 && mobile.length === 10 && consent;
+  const valid = name.trim().length > 1 && isValidPhone(mobile, countryCode) && consent;
 
   const submit = async () => {
     if (!valid) return;
@@ -56,14 +59,18 @@ export default function GuestCallback() {
       await requestCallBack({
         name: name.trim(),
         mobile,
+        countryCode,
         callingFor,
         topic,
         city,
       });
       setDone(true);
       toastSuccess(t('ui.homeCare.submittedTitle'), t('ui.guest.notSureBody'));
-    } catch {
-      toastError(t('ui.common.somethingWrong'), t('ui.common.retry'));
+    } catch (err) {
+      toastError(
+        t('ui.common.somethingWrong'),
+        requestErrorMessage(err) ?? t('ui.common.retry')
+      );
     } finally {
       setSending(false);
     }
@@ -92,11 +99,11 @@ export default function GuestCallback() {
               {t('ui.homeCare.willCallYou')}
             </Txt>
             <Txt variant="section" script="latin" center>
-              +91 {mobile}
+              +{countryCode} {mobile}
             </Txt>
             <Btn
               label={t('ui.booking.backToHome')}
-              onPress={() => router.replace('/guest')}
+              onPress={() => router.replace('/(tabs)')}
               style={styles.doneBtn}
             />
           </Card>
@@ -127,14 +134,13 @@ export default function GuestCallback() {
           containerStyle={styles.field}
         />
 
-        <Field
+        <PhoneField
           label={t('ui.guest.mobileNumber')}
-          prefix="+91"
           placeholder={t('ui.guest.enterMobile')}
+          countryCode={countryCode}
+          onCountryCode={setCountryCode}
           value={mobile}
-          onChangeText={(v) => setMobile(v.replace(/\D/g, ''))}
-          keyboardType="number-pad"
-          maxLength={10}
+          onChangeText={setMobile}
           containerStyle={styles.field}
         />
 

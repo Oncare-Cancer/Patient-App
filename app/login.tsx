@@ -231,7 +231,10 @@ export default function LoginScreen() {
           params: resume.params as never,
         });
       } else {
-        router.replace('/(tabs)');
+        // Back to wherever they opened login from - Home, My Care, a blog -
+        // which now re-renders signed in. Login is a modal over the app, not
+        // the app's front door.
+        close();
       }
       return;
     }
@@ -239,6 +242,18 @@ export default function LoginScreen() {
     setVerifying(false);
     setOtp('');
     setErrors({ identifier: '', otp: t('ui.common.invalidOtp'), uid: '' });
+  };
+
+  /**
+   * Leaves login and returns to the screen it was opened from.
+   *
+   * The app opens on Home now, so login is always pushed on top of something.
+   * `replace('/(tabs)')` is only the fallback for a cold deep link to /login,
+   * where there is nothing to go back to.
+   */
+  const close = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
   };
 
   const backToIdentifier = () => {
@@ -285,7 +300,7 @@ export default function LoginScreen() {
         >
           {step === 'identifier' ? (
             <>
-              <LoginHero />
+              <LoginHero onClose={close} />
               <IdentifierStep
                 method={method}
                 onMethod={(m) => {
@@ -298,7 +313,7 @@ export default function LoginScreen() {
                 error={errors.identifier}
                 sending={sending}
                 onSubmit={() => requestOtp()}
-                onGuest={() => router.replace('/guest')}
+                onGuest={close}
               />
             </>
           ) : (

@@ -36,3 +36,4 @@ export { AttachSheet } from './AttachSheet';
 export { Select, type SelectOption } from './Select';
 export { ConfirmDialog } from './ConfirmDialog';
 export { Accordion } from './Accordion';
+export { PhoneField } from './PhoneField';

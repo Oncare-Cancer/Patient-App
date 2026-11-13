@@ -46,7 +46,13 @@ export default ({ config }) => {
       switched on, this is the build that passes and 1.0.0 is the one told
       to update.
     */
-    version: "1.0.1",
+    /*
+      1.0.2: this build adds a native module (expo-location), so it is a new
+      runtime. runtimeVersion follows this field (policy "appVersion" in
+      app.json), so an OTA update made for 1.0.2 can never be delivered to
+      the 1.0.1 binary, which has no location module and would crash.
+    */
+    version: "1.0.2",
     android: {
       ...config.android,
       versionCode: buildNumber,

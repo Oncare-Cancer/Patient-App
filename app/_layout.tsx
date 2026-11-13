@@ -131,29 +131,28 @@ function RootLayoutNav() {
          * and number at the point of submit, and the catalogue and profile
          * screens because they read the token-free endpoints.
          */
-        const SIGNED_OUT_ONLY = ['login', 'guest'];
-        const GUEST_BROWSABLE = [
-          'login',
-          'guest',
-          'services',
-          'centre',
-          'doctor',
-          'search',
-        ];
+        /*
+         * Round 7: the app opens on Home, signed in or not.
+         *
+         * A guest can now go everywhere a visitor has a reason to be - Home,
+         * Discover, Book, every service form - and the two tabs that hold
+         * patient data (My Care, Profile) render their own "log in to see
+         * this" state instead of bouncing the visitor to a login wall. So
+         * the gate shrinks to the routes that are ONLY patient data, with no
+         * guest state to show.
+         *
+         * Login is a modal over the app and closes itself on success (see
+         * app/login.tsx), so a signed-in patient is no longer redirected away
+         * from it here - that redirect raced the screen's own navigation.
+         */
+        const first = segments[0] as string | undefined;
+        const second = segments[1] as string | undefined;
+        const patientOnly =
+          first === 'notifications' ||
+          (first === 'profile' && second === 'personal');
 
-        const first = segments[0];
-        const signedOutOnly = SIGNED_OUT_ONLY.includes(first);
-        // Explore is allowed for a guest even though it lives in the tab group,
-        // because it reads only the unauthenticated catalogue endpoints. The
-        // other tabs are patient data and stay closed.
-        const guestBrowsable =
-          GUEST_BROWSABLE.includes(first) ||
-          (first === '(tabs)' && segments[1] === 'explore');
-
-        if (!isAuthenticated || !patient) {
-          if (!guestBrowsable) router.replace('/login');
-        } else if (signedOutOnly) {
-          router.replace('/(tabs)');
+        if ((!isAuthenticated || !patient) && patientOnly) {
+          router.replace('/login');
         }
       } catch (e) {
         console.warn(e);
@@ -219,7 +218,12 @@ function RootLayoutNav() {
 
   return (
     <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
-      <Stack.Screen name="login" options={{ animation: 'fade' }} />
+      {/* Full-screen modal over whatever the patient was doing, so closing
+          it - or logging in - returns them there rather than to Home. */}
+      <Stack.Screen
+        name="login"
+        options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }}
+      />
       <Stack.Screen name="guest" options={{ animation: 'fade' }} />
       <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
       <Stack.Screen name="+not-found" />

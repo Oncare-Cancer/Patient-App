@@ -188,7 +188,7 @@ export default function GuestDoctors() {
         onClose={() => setPicked(null)}
         onLogin={() => {
           setPicked(null);
-          router.replace('/login');
+          router.push('/login');
         }}
       />
 

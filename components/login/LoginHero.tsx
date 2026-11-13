@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SosPill, Txt, LanguageSegmented, Logo } from '@/components/ui';
 import { useT } from '@/contexts/LanguageContext';
@@ -43,7 +44,7 @@ const SLIDES = [
  * driven by hand, and tapping pauses it, because an auto-advance that keeps
  * moving after a deliberate tap feels broken.
  */
-export function LoginHero() {
+export function LoginHero({ onClose }: { onClose?: () => void } = {}) {
   const t = useT();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
@@ -136,7 +137,22 @@ export function LoginHero() {
       />
 
       <View style={styles.topRow}>
-        <Logo height={24} />
+        <View style={styles.brand}>
+          {/* The way out sits before the logo: login is optional now, so
+              leaving it has to be as obvious as arriving. */}
+          {onClose ? (
+            <Pressable
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              hitSlop={12}
+              style={styles.closeBtn}
+            >
+              <X size={17} color={TEXT.onDark} strokeWidth={2.4} />
+            </Pressable>
+          ) : null}
+          <Logo height={24} />
+        </View>
         <SosPill />
       </View>
 
@@ -202,6 +218,19 @@ const styles = StyleSheet.create({
     height: 210,
     borderRadius: 105,
     opacity: 0.8,
+  },
+  brand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACE.sm,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   topRow: {
     flexDirection: 'row',

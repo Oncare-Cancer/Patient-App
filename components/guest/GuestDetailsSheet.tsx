@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Modal, View, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Phone, UserRound } from 'lucide-react-native';
-import { Btn, Field, Txt } from '@/components/ui';
+import { UserRound } from 'lucide-react-native';
+import { Btn, Field, PhoneField, Txt } from '@/components/ui';
+import { DEFAULT_COUNTRY_CODE, isValidPhone } from '@/utils/phone';
 import { useT } from '@/contexts/LanguageContext';
 import {
   PALETTE,
@@ -44,7 +45,7 @@ export function GuestDetailsSheet({
 }: {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (details: { name: string; phone: string }) => void;
+  onSubmit: (details: { name: string; phone: string; countryCode: string }) => void;
   submitting?: boolean;
   summary?: string;
   onLogin?: () => void;
@@ -54,17 +55,19 @@ export function GuestDetailsSheet({
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_CODE);
   const [touched, setTouched] = useState(false);
 
   const nameOk = name.trim().length >= 2;
-  // Indian mobile numbers are ten digits and never start below 6. Checked
-  // because an unreachable number makes the whole request unactionable.
-  const phoneOk = /^[6-9]\d{9}$/.test(phone);
+  // Checked here as well as on the server, because an unreachable number makes
+  // the whole request unactionable and the server's "no" would arrive after
+  // the button had already spun. Same rules as the backend (utils/phone).
+  const phoneOk = isValidPhone(phone, countryCode);
 
   const send = () => {
     setTouched(true);
     if (!nameOk || !phoneOk || submitting) return;
-    onSubmit({ name: name.trim(), phone });
+    onSubmit({ name: name.trim(), phone, countryCode });
   };
 
   return (
@@ -111,14 +114,12 @@ export function GuestDetailsSheet({
           containerStyle={styles.field}
         />
 
-        <Field
-          icon={<Phone size={15} color={TEXT.muted} strokeWidth={2} />}
+        <PhoneField
           label={t('ui.guest.yourNumber')}
-          placeholder="98765 43210"
+          countryCode={countryCode}
+          onCountryCode={setCountryCode}
           value={phone}
-          onChangeText={(v) => setPhone(v.replace(/\D/g, '').slice(0, 10))}
-          keyboardType="phone-pad"
-          maxLength={10}
+          onChangeText={setPhone}
           error={touched && !phoneOk ? t('ui.guest.phoneError') : undefined}
           containerStyle={styles.field}
         />

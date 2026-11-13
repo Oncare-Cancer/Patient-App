@@ -5,6 +5,7 @@ import { useT } from '@/contexts/LanguageContext';
 import {
   createGuestRequest,
   createRequest,
+  requestErrorMessage,
   type GuestRequestType,
   type RequestLine,
   type RequestType,
@@ -77,7 +78,16 @@ export function useRequestSubmit({
   const [guestOpen, setGuestOpen] = useState(false);
   const upload = useUploadProgress();
 
-  const GUEST_TYPES: RequestType[] = ['medicine', 'lab', 'admission', 'secondOpinion'];
+  // Mirrors GUEST_TYPES on the server. Home care joined in round 7: it is a
+  // Home tile like the others, and the team confirms the visit on the call.
+  const GUEST_TYPES: RequestType[] = [
+    'medicine',
+    'lab',
+    'admission',
+    'secondOpinion',
+    'homeCare',
+    'consultation',
+  ];
   const guestAllowed = GUEST_TYPES.includes(type);
 
   const asPatient = useCallback(async () => {
@@ -110,19 +120,25 @@ export function useRequestSubmit({
   }, [files, uploadPurpose, type, build, onSubmitted, patient, t, upload]);
 
   const asGuest = useCallback(
-    async ({ name, phone }: { name: string; phone: string }) => {
+    async ({ name, phone, countryCode }: { name: string; phone: string; countryCode: string }) => {
       setSubmitting(true);
       try {
         const { requestId } = await createGuestRequest({
           type: type as GuestRequestType,
           name,
           phone,
+          countryCode,
           ...build(),
         });
         setGuestOpen(false);
-        onSubmitted({ requestId, phone });
-      } catch {
-        toastError(t('ui.common.somethingWrong'), t('ui.common.retry'));
+        onSubmitted({ requestId, phone: countryCode === '91' ? phone : `+${countryCode} ${phone}` });
+      } catch (err) {
+        // The server's own sentence when it has one ("Please add the address
+        // for the visit"), so the guest knows what to fix.
+        toastError(
+          t('ui.common.somethingWrong'),
+          requestErrorMessage(err) ?? t('ui.common.retry')
+        );
       } finally {
         setSubmitting(false);
       }
@@ -142,7 +158,7 @@ export function useRequestSubmit({
     }
     // Nothing a guest can do with this type, so send them to login rather
     // than opening a sheet that cannot succeed.
-    router.replace('/login');
+    router.push('/login');
   }, [submitting, canSubmit, isAuthenticated, guestAllowed, asPatient, router]);
 
   return {
@@ -167,7 +183,7 @@ export function useRequestSubmit({
       onSubmit: asGuest,
       onLogin: () => {
         setGuestOpen(false);
-        router.replace('/login');
+        router.push('/login');
       },
     },
   };

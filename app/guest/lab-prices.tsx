@@ -233,7 +233,7 @@ export default function GuestLabPrices() {
         onClose={() => setLoginOpen(false)}
         onLogin={() => {
           setLoginOpen(false);
-          router.replace('/login');
+          router.push('/login');
         }}
       />
 

@@ -35,7 +35,12 @@
       "permissions": [
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
-        "DOWNLOAD_WITHOUT_NOTIFICATION"
+        "DOWNLOAD_WITHOUT_NOTIFICATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
+      "blockedPermissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION"
       ],
       "config": {
         "googleServices": {
@@ -84,6 +89,20 @@
         }
       ],
       "expo-localization",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Oncare uses your approximate location to show the Oncare centre nearest to you and its doctors. Your location is used only while the app is open.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "locationFullAccuracyPermission": false,
+          "motionUsagePermission": false,
+          "isIosReducedAccuracyByDefault": true,
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false
+        }
+      ],
       "expo-web-browser",
       "./plugins/withAndroidManifestFix",
       "./plugins/withFirebaseModularHeaders"
@@ -98,7 +117,9 @@
       }
     },
     "owner": "oncarecancer-app",
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "updates": {
       "url": "https://u.expo.dev/fcf640f1-4ef7-4fdf-abe0-cdd3e913ccb9"
     }

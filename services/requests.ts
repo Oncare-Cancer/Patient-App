@@ -1,4 +1,5 @@
 import { fetchWrapper } from '@/utils/fetchWrapper';
+import { getApproxLocation, type ApproxLocation } from '@/services/location';
 
 /**
  * Ops requests — the tickets behind sections 12 to 17.
@@ -16,7 +17,53 @@ import { fetchWrapper } from '@/utils/fetchWrapper';
  *   (or Closed with a reason)
  */
 
-export type RequestType = 'homeCare' | 'medicine' | 'lab' | 'secondOpinion' | 'admission' | 'callBack';
+export type RequestType =
+  | 'homeCare'
+  | 'medicine'
+  | 'lab'
+  | 'secondOpinion'
+  | 'admission'
+  | 'callBack'
+  | 'consultation';
+
+/** Where in the app a request was raised. Shown to the team as "From". */
+export type RequestOrigin = {
+  type: 'blog' | 'video' | 'centre' | 'doctor' | 'home' | 'booking' | 'service';
+  slug?: string;
+  title?: string;
+};
+
+/**
+ * The patient's approximate location, for the request body.
+ *
+ * Every request carries one when the patient has allowed it, so the team sees
+ * "3 km from Gurugram" and routes the call to the right desk. It asks the OS
+ * only while the permission is undetermined - after a "no" it never asks
+ * again - and gives up after 4 s, so a slow fix can never hold up a submit.
+ */
+/**
+ * The server's own sentence from a failed request, when it sent one.
+ *
+ * fetchWrapper throws "HTTP 400: {json}" for a 4xx, and the JSON carries a
+ * message written for the patient ("Please choose a centre and a preferred
+ * day"). Showing that beats a generic "something went wrong", which leaves
+ * them pressing the same button.
+ */
+export function requestErrorMessage(err: unknown): string | null {
+  const m = /^HTTP 4\d\d: ([\s\S]*)$/.exec(String((err as Error)?.message ?? ''));
+  if (!m) return null;
+  try {
+    const msg = JSON.parse(m[1])?.message;
+    return typeof msg === 'string' && msg.trim() ? msg : null;
+  } catch {
+    return null;
+  }
+}
+
+async function locationField(): Promise<{ location?: ApproxLocation }> {
+  const location = await getApproxLocation({ timeoutMs: 4000 });
+  return location ? { location } : {};
+}
 
 export type RequestStatus =
   | 'submitted'
@@ -93,13 +140,18 @@ export type OpsRequest = {
 export async function requestCallBack(body: {
   name: string;
   mobile: string;
+  /** Digits only, without "+". Defaults to 91 server-side. */
+  countryCode?: string;
   callingFor: 'myself' | 'family';
   topic: string;
-  city: string;
+  city?: string;
+  /** The patient's question, from "Any query" on a blog or video. */
+  note?: string;
+  origin?: RequestOrigin;
 }): Promise<{ requestId: string }> {
   const res = await fetchWrapper<any>('/requests/call-back', {
     method: 'POST',
-    body,
+    body: { ...body, ...(await locationField()) },
     skipAuth: true,
   });
   return { requestId: res?.data?.requestId ?? '' };
@@ -121,24 +173,35 @@ export async function createRequest(body: {
   fileKeys?: string[];
   /** Free-form extras per type (cancer type, payment mode, delivery mode…). */
   meta?: Record<string, unknown>;
+  origin?: RequestOrigin;
 }): Promise<{ requestId: string }> {
   const res = await fetchWrapper<any>('/requests', {
     method: 'POST',
-    body,
+    body: { ...body, ...(await locationField()) },
   });
   return { requestId: res?.data?.requestId ?? '' };
 }
 
-/** The four service requests a guest can raise without logging in. */
-export type GuestRequestType = 'medicine' | 'lab' | 'admission' | 'secondOpinion';
+/**
+ * The service requests a guest can raise without logging in.
+ *
+ * `consultation` is a guest's booking: a doctor, a centre and a preferred day
+ * and time, and the team calls back. A logged-in patient books a real slot.
+ */
+export type GuestRequestType =
+  | 'medicine'
+  | 'lab'
+  | 'admission'
+  | 'secondOpinion'
+  | 'consultation'
+  | 'homeCare';
 
 /**
  * The same request, raised without a session.
  *
  * A guest can browse and build the whole thing; the name and number are asked
  * for once, at the point of submit, because that is the only information the
- * team actually needs in order to call back. Home care is not here: it is
- * scheduled against a patient's own address and treatment plan.
+ * team actually needs in order to call back.
  *
  * Two deliberate differences from `createRequest`:
  *  - `name` and `phone` are required, since there is no token to derive them
@@ -155,6 +218,8 @@ export async function createGuestRequest(body: {
   type: GuestRequestType;
   name: string;
   phone: string;
+  /** Digits only, without "+". Defaults to 91 server-side. */
+  countryCode?: string;
   subType?: string;
   centre?: string;
   address?: string;
@@ -164,10 +229,11 @@ export async function createGuestRequest(body: {
   note?: string;
   lines?: RequestLine[];
   meta?: Record<string, unknown>;
+  origin?: RequestOrigin;
 }): Promise<{ requestId: string }> {
   const res = await fetchWrapper<any>('/requests/guest', {
     method: 'POST',
-    body,
+    body: { ...body, ...(await locationField()) },
     skipAuth: true,
   });
   return { requestId: res?.data?.requestId ?? '' };
