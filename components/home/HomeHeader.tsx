@@ -3,7 +3,7 @@ import { View, Pressable, StyleSheet, Linking, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bell, PhoneCall } from 'lucide-react-native';
-import { Btn, Logo, SosPill, Txt } from '@/components/ui';
+import { Btn, LanguageSegmented, Logo, SosPill, Txt } from '@/components/ui';
 import { useT } from '@/contexts/LanguageContext';
 import { SUPPORT_NUMBER } from '@/constants/contact';
 import {
@@ -34,7 +34,7 @@ function greetingKey(): 'greetingMorning' | 'greetingAfternoon' | 'greetingEveni
  * patient name, Hospital ID chip and avatar.
  *
  * `guest` (round 7): Home is the same screen for everyone now, so a guest gets
- * this header too - "Hello, Guest" and a Login button where the avatar sits,
+ * this header too - "Welcome to Oncare" and a Login button where the avatar sits,
  * and no bell, because a guest has no notifications. The Login button is
  * always visible here, which is the first of the three ways in an existing
  * patient has (with the Home strip and the My Care / Profile tabs).
@@ -111,13 +111,30 @@ export function HomeHeader({
 
       <View style={styles.greetRow}>
         <View style={styles.greetCol}>
-          <Txt variant="helper" color={TEXT.onDarkMuted}>
-            {guest ? t('ui.guest.welcome') : t(`ui.home.${greetingKey()}`)}
-          </Txt>
-          {/* Patient name is personal data in whatever script it was entered. */}
-          <Txt variant="titleLg" color={TEXT.onDark} numberOfLines={1}>
-            {guest ? t('ui.guest.helloGuest') : name}
-          </Txt>
+          {guest ? (
+            // No "Hello, Guest": calling someone a guest on the first screen
+            // reads as being kept outside. A plain welcome instead.
+            <>
+              <Txt variant="titleLg" color={TEXT.onDark} numberOfLines={2}>
+                {t('ui.guest.welcome')}
+              </Txt>
+              {/* Profile is for signed-in patients only, so this is where a
+                  guest switches language (the login screen has the same). */}
+              <View style={styles.lang}>
+                <LanguageSegmented onDark />
+              </View>
+            </>
+          ) : (
+            <>
+              <Txt variant="helper" color={TEXT.onDarkMuted}>
+                {t(`ui.home.${greetingKey()}`)}
+              </Txt>
+              {/* Patient name is personal data in whatever script it was entered. */}
+              <Txt variant="titleLg" color={TEXT.onDark} numberOfLines={1}>
+                {name}
+              </Txt>
+            </>
+          )}
           {hospitalId ? (
             <View style={styles.idChip}>
               <Txt variant="helperSm" color={TEXT.onDark} script="latin">
@@ -202,6 +219,10 @@ const styles = StyleSheet.create({
   greetCol: {
     flex: 1,
     gap: 2,
+  },
+  lang: {
+    alignSelf: 'flex-start',
+    marginTop: SPACE.xs,
   },
   idChip: {
     alignSelf: 'flex-start',

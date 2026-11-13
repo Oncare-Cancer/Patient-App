@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import {
   Bell,
@@ -21,7 +21,6 @@ import {
   UserRound,
 } from 'lucide-react-native';
 import {
-  Btn,
   Card,
   ConfirmDialog,
   LanguageRows,
@@ -65,12 +64,11 @@ export default function Profile() {
   const t = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { patient, logout, isAuthenticated } = useAuth();
+  const { patient, logout, isAuthenticated, loading } = useAuth();
   /**
-   * Profile is open to guests (round 7). A guest gets a login prompt in place
-   * of their identity, keeps the things that need no account - language,
-   * calling us, FAQs - and does not see rows that would only lead to a login
-   * wall (personal details, notifications) or a Logout they cannot use.
+   * Profile is for signed-in patients only. A guest's nav shows Login in this
+   * slot instead; language is on the Home header, FAQs in Discover and the
+   * call button in every header, so nothing here is lost to them.
    */
   const signedIn = isAuthenticated && !!patient;
   const [languageOpen, setLanguageOpen] = useState(false);
@@ -90,12 +88,17 @@ export default function Profile() {
     try {
       await logout();
     } finally {
-      // The screen re-renders as the guest view on the auth change; the dialog
-      // is closed here so it is not left open over it, or after a failure.
+      // The auth change redirects to Home; the dialog is closed here so it is
+      // not left open, or after a failure.
       setLoggingOut(false);
       setLogoutOpen(false);
     }
   };
+
+  // Reached as a guest only by a deep link, or by logging out from here: both
+  // go to Home. Nothing is decided until the stored session has been read.
+  if (loading) return <View style={styles.root} />;
+  if (!signedIn) return <Redirect href="/(tabs)" />;
 
   return (
     <View style={styles.root}>
@@ -124,52 +127,29 @@ export default function Profile() {
               <SosPill />
             </View>
 
-            {signedIn ? (
-              <View style={styles.identity}>
-                <View style={styles.avatar}>
-                  <Txt variant="titleLg" color={TEXT.onDark} script="latin">
-                    {initials(name)}
-                  </Txt>
-                </View>
-                <Txt variant="titleLg" color={TEXT.onDark} center numberOfLines={1}>
-                  {name}
-                </Txt>
-                <Txt variant="helperSm" color={TEXT.onDarkMuted} center script="latin">
-                  {[
-                    patient?.patient_id ? `UID ${patient.patient_id}` : null,
-                    patient?.gender,
-                    patient?.age_yrs,
-                    patient?.phone_number ? `+91 ${patient.phone_number}` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
+            <View style={styles.identity}>
+              <View style={styles.avatar}>
+                <Txt variant="titleLg" color={TEXT.onDark} script="latin">
+                  {initials(name)}
                 </Txt>
               </View>
-            ) : (
-              <View style={styles.identity}>
-                <View style={styles.avatar}>
-                  <UserRound size={26} color={TEXT.onDark} strokeWidth={2} />
-                </View>
-                <Txt variant="titleLg" color={TEXT.onDark} center>
-                  {t('ui.myCare.profileGuestTitle')}
-                </Txt>
-                <Txt variant="helperSm" color={TEXT.onDarkMuted} center>
-                  {t('ui.myCare.profileGuestBody')}
-                </Txt>
-                <Btn
-                  label={t('ui.login.login')}
-                  variant="gradient"
-                  compact
-                  block={false}
-                  onPress={() => router.push('/login')}
-                  style={styles.guestLogin}
-                />
-              </View>
-            )}
+              <Txt variant="titleLg" color={TEXT.onDark} center numberOfLines={1}>
+                {name}
+              </Txt>
+              <Txt variant="helperSm" color={TEXT.onDarkMuted} center script="latin">
+                {[
+                  patient?.patient_id ? `UID ${patient.patient_id}` : null,
+                  patient?.gender,
+                  patient?.age_yrs,
+                  patient?.phone_number ? `+91 ${patient.phone_number}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Txt>
+            </View>
           </LinearGradient>
         }
       >
-        {signedIn ? (
         <Group title={t('ui.profile.account')}>
           <Row
             Icon={UserRound}
@@ -187,7 +167,6 @@ export default function Profile() {
             onPress={() => router.replace('/(tabs)/appointments')}
           />
         </Group>
-        ) : null}
 
         <Group title={t('ui.profile.preferences')}>
           <Row
@@ -202,14 +181,12 @@ export default function Profile() {
               <LanguageRows />
             </View>
           ) : null}
-          {signedIn ? (
-            <Row
-              Icon={Bell}
-              title={t('ui.profile.notifications')}
-              hint={t('ui.profile.notificationsHint')}
-              onPress={() => router.push('/notifications')}
-            />
-          ) : null}
+          <Row
+            Icon={Bell}
+            title={t('ui.profile.notifications')}
+            hint={t('ui.profile.notificationsHint')}
+            onPress={() => router.push('/notifications')}
+          />
         </Group>
 
         <Group title={t('ui.profile.help')}>
@@ -227,7 +204,6 @@ export default function Profile() {
           />
         </Group>
 
-        {signedIn ? (
         <Pressable
           onPress={() => setLogoutOpen(true)}
           accessibilityRole="button"
@@ -238,7 +214,6 @@ export default function Profile() {
             {t('ui.common.logout')}
           </Txt>
         </Pressable>
-        ) : null}
 
         <Txt variant="helperSm" color={TEXT.muted} center style={styles.version}>
           {t('ui.profile.version', { version })}
@@ -402,7 +377,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: SURFACE.divider,
   },
-  guestLogin: { marginTop: SPACE.sm, alignSelf: 'center' },
   logout: {
     flexDirection: 'row',
     alignItems: 'center',

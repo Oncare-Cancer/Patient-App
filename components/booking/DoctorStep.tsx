@@ -40,6 +40,7 @@ export function DoctorStep({
   onSelect,
   onViewProfile,
   nextFree,
+  showAvailability = true,
 }: {
   doctors: Practitioner[];
   loading: boolean;
@@ -49,6 +50,11 @@ export function DoctorStep({
   onViewProfile: (d: Practitioner) => void;
   /** practitionerId -> "Today 2:00 PM". Absent means not yet looked up. */
   nextFree: Record<string, string>;
+  /**
+   * Off for a guest: their list comes from the CMS, with no slot data behind
+   * it, so "Next available" on every doctor would be a claim nobody checked.
+   */
+  showAvailability?: boolean;
 }) {
   const t = useT();
   const [query, setQuery] = useState('');
@@ -88,15 +94,18 @@ export function DoctorStep({
           const active = selected?.id === d.id;
           const free = nextFree[d.id];
           return (
-            <Pressable
-              key={d.id}
-              onPress={() => onSelect(d)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              accessibilityLabel={`${d.name}${d.speciality ? `, ${d.speciality}` : ''}`}
-              style={({ pressed }) => [pressed && styles.pressed]}
-            >
-              <Card tone="plain" selected={active} style={styles.card}>
+            // The card is not itself the button: "View profile" is a second
+            // action in it, and a button inside a button is invalid (react-dom
+            // flags it on web, and screen readers merge the two). So the doctor
+            // row is the select button and the link sits beside it.
+            <Card key={d.id} tone="plain" selected={active} style={styles.card}>
+              <Pressable
+                onPress={() => onSelect(d)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`${d.name}${d.speciality ? `, ${d.speciality}` : ''}`}
+                style={({ pressed }) => [pressed && styles.pressed]}
+              >
                 <View style={styles.top}>
                   <View style={styles.avatar}>
                     {d.img ? (
@@ -150,44 +159,44 @@ export function DoctorStep({
                       unreadable and the action half-tappable. One more line is
                       the right trade.
                     */}
-                    <View style={styles.availRow}>
-                      <CalendarCheck size={11} color="#1B7A42" strokeWidth={2.4} />
-                      <Txt
-                        variant="helperSm"
-                        color="#1B7A42"
-                        script={free ? 'latin' : 'auto'}
-                        numberOfLines={1}
-                        style={styles.flex}
-                      >
-                        {free
-                          ? `${t('ui.booking.nextAvailable')}: ${free}`
-                          : t('ui.booking.nextAvailable')}
-                      </Txt>
-                    </View>
-
-                    {/* Only when the CMS has a record to show. */}
-                    {d.hasProfile ? (
-                      <Pressable
-                        onPress={() => onViewProfile(d)}
-                        accessibilityRole="button"
-                        hitSlop={10}
-                        style={styles.profileLink}
-                      >
+                    {showAvailability ? (
+                      <View style={styles.availRow}>
+                        <CalendarCheck size={11} color="#1B7A42" strokeWidth={2.4} />
                         <Txt
                           variant="helperSm"
-                          color={PALETTE.deepBlue}
-                          style={styles.link}
+                          color="#1B7A42"
+                          script={free ? 'latin' : 'auto'}
+                          numberOfLines={1}
+                          style={styles.flex}
                         >
-                          {t('ui.booking.viewProfile')}
+                          {free
+                            ? `${t('ui.booking.nextAvailable')}: ${free}`
+                            : t('ui.booking.nextAvailable')}
                         </Txt>
-                      </Pressable>
+                      </View>
                     ) : null}
+
                   </View>
 
                   <ChevronRight size={16} color={TEXT.muted} strokeWidth={2.2} />
                 </View>
-              </Card>
-            </Pressable>
+              </Pressable>
+
+              {/* Only when the CMS has a record to show. Lined up under the
+                  doctor's details, as it was when it sat inside them. */}
+              {d.hasProfile ? (
+                <Pressable
+                  onPress={() => onViewProfile(d)}
+                  accessibilityRole="button"
+                  hitSlop={10}
+                  style={styles.profileLink}
+                >
+                  <Txt variant="helperSm" color={PALETTE.deepBlue} style={styles.link}>
+                    {t('ui.booking.viewProfile')}
+                  </Txt>
+                </Pressable>
+              ) : null}
+            </Card>
           );
         })
       )}
@@ -222,6 +231,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   profileLink: {
     alignSelf: 'flex-start',
+    // Avatar width + row gap, so the link starts under the name.
+    marginLeft: 72 + SPACE.md,
+    marginTop: -SPACE.xxs,
     minHeight: 28,
     justifyContent: 'center',
   },

@@ -19,7 +19,13 @@ import { PALETTE, SPACE, SURFACE, TEXT } from '@/constants/theme';
 /**
  * The video library, as https://www.oncarecancer.com/videos/ organises it:
  * Full videos or Shorts, and the same seven categories.
+ *
+ * The library is ~400 videos. It arrives in one small response (cached), but
+ * is rendered a page at a time as the patient scrolls, so the screen never
+ * mounts hundreds of cards and their thumbnails at once.
  */
+const PAGE = 12;
+
 export default function Videos() {
   const t = useT();
   const router = useRouter();
@@ -31,6 +37,7 @@ export default function Videos() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [visible, setVisible] = useState(PAGE);
 
   const load = async () => {
     setState('loading');
@@ -56,6 +63,13 @@ export default function Videos() {
     [videos, kind, category]
   );
 
+  // A new filter starts from the first page again.
+  useEffect(() => {
+    setVisible(PAGE);
+  }, [kind, category]);
+
+  const page = shown.slice(0, visible);
+
   const counts = useMemo(
     () => ({ full: videos.filter((v) => !v.short).length, short: videos.filter((v) => v.short).length }),
     [videos]
@@ -67,7 +81,12 @@ export default function Videos() {
   return (
     <View style={styles.root}>
       <ScreenHeader title={t('ui.discover.videos')} />
-      <Screen scrollResetKey={`${kind}-${category}`}>
+      <Screen
+        scrollResetKey={`${kind}-${category}`}
+        onEndReached={() => {
+          if (visible < shown.length) setVisible((n) => n + PAGE);
+        }}
+      >
         <View style={styles.tabs}>
           {(['full', 'short'] as const).map((k) => (
             <Pressable
@@ -108,7 +127,7 @@ export default function Videos() {
           />
         ) : kind === 'short' ? (
           <View style={styles.grid}>
-            {shown.map((v) => (
+            {page.map((v) => (
               <ShortCard
                 key={v.id}
                 video={v}
@@ -124,7 +143,7 @@ export default function Videos() {
           </View>
         ) : (
           <View style={styles.list}>
-            {shown.map((v) => (
+            {page.map((v) => (
               <VideoCard
                 key={v.id}
                 video={v}

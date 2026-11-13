@@ -35,6 +35,11 @@ export function Screen({
    * opened the doctor step already scrolled past its heading.
    */
   scrollResetKey,
+  /**
+   * Called when the patient scrolls within ~one screen of the bottom, for
+   * lists that render in pages. Fires again only after the content grows.
+   */
+  onEndReached,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
@@ -44,17 +49,21 @@ export function Screen({
   contentStyle?: ViewStyle;
   bleed?: React.ReactNode;
   scrollResetKey?: string | number;
+  onEndReached?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   // `ComponentRef<typeof ScrollView>`, not `ScrollView`: under RN 0.88 the
   // component is a function, so the class type is not the instance type.
   const scroller = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  /** Content height at the last onEndReached, so one height fires it once. */
+  const endFiredAt = useRef(0);
 
   useEffect(() => {
     if (scrollResetKey === undefined) return;
     // Not animated: this is a page change, not a scroll gesture, and animating
     // it means the new step visibly slides away from the patient.
     scroller.current?.scrollTo({ y: 0, animated: false });
+    endFiredAt.current = 0;
   }, [scrollResetKey]);
   const bottomPad =
     (withNav ? NAV_CLEARANCE + Math.max(insets.bottom, SPACE.xs) : insets.bottom) +
@@ -85,6 +94,18 @@ export function Screen({
       // being re-added per screen. No-op on Android, where the window resizes.
       automaticallyAdjustKeyboardInsets
       showsVerticalScrollIndicator={false}
+      scrollEventThrottle={onEndReached ? 100 : undefined}
+      onScroll={
+        onEndReached
+          ? ({ nativeEvent: { contentOffset, contentSize, layoutMeasurement } }) => {
+              const fromEnd = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+              if (fromEnd < layoutMeasurement.height && endFiredAt.current !== contentSize.height) {
+                endFiredAt.current = contentSize.height;
+                onEndReached();
+              }
+            }
+          : undefined
+      }
       refreshControl={
         onRefresh ? (
           <RefreshControl

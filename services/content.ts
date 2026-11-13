@@ -102,18 +102,28 @@ export async function getBlog(slug: string): Promise<BlogDetail | null> {
  * so it is fetched once rather than per screen.
  */
 let videoCache: { at: number; videos: Video[]; categories: string[] } | null = null;
+/** The request in flight, so Home and Discover opening together share one. */
+let videoInFlight: Promise<{ videos: Video[]; categories: string[] }> | null = null;
 const VIDEO_TTL_MS = 10 * 60 * 1000;
 
 export async function listVideos(): Promise<{ videos: Video[]; categories: string[] }> {
   if (videoCache && Date.now() - videoCache.at < VIDEO_TTL_MS) return videoCache;
-  const res = await fetchWrapper<any>('/app-videos', { skipAuth: true });
-  const d = res?.data ?? {};
-  videoCache = {
-    at: Date.now(),
-    videos: Array.isArray(d.videos) ? d.videos : [],
-    categories: Array.isArray(d.categories) ? d.categories : [],
-  };
-  return videoCache;
+  if (videoInFlight) return videoInFlight;
+  videoInFlight = (async () => {
+    const res = await fetchWrapper<any>('/app-videos', { skipAuth: true });
+    const d = res?.data ?? {};
+    videoCache = {
+      at: Date.now(),
+      videos: Array.isArray(d.videos) ? d.videos : [],
+      categories: Array.isArray(d.categories) ? d.categories : [],
+    };
+    return videoCache;
+  })();
+  try {
+    return await videoInFlight;
+  } finally {
+    videoInFlight = null;
+  }
 }
 
 /** YouTube thumbnail. `hqdefault` is 4:3 with bars; fine for cards. */

@@ -90,7 +90,14 @@ export default function Blogs() {
   return (
     <View style={styles.root}>
       <ScreenHeader title={t('ui.discover.articles')} />
-      <Screen scrollResetKey={`${lang}-${topic}-${q}`}>
+      <Screen
+        scrollResetKey={`${lang}-${topic}-${q}`}
+        // Next page as the patient nears the end; the button below stays for
+        // anyone who stops short of it.
+        onEndReached={() => {
+          if (state === 'ready' && hasMore && !more) void load(page + 1);
+        }}
+      >
         <Field
           icon={<Search size={15} color={PALETTE.purple} strokeWidth={2} />}
           placeholder={t('ui.home.searchPlaceholder')}

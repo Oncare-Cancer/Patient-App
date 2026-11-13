@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Tabs, useRouter, useSegments } from 'expo-router';
 import { BottomNav, TAB_ROUTES, type TabKey } from '@/components/ui';
+import { useAuth } from '@/contexts/AuthContext';
 import { SURFACE } from '@/constants/theme';
 
 /**
@@ -11,9 +12,9 @@ import { SURFACE } from '@/constants/theme';
  * the stack instead: the design's bar floats inset from the screen edges with
  * a raised white "+" that overhangs it, which a native tab bar cannot do.
  *
- * Round 7: every tab is open to a guest. My Care and Profile show their own
- * "log in to see this" state instead of a login wall, so the nav never
- * bounces anybody to /login.
+ * Round 7: Home, Discover, Book and My Care are open to a guest (My Care shows
+ * its own "log in to see this" state). Profile is signed-in only: a guest's
+ * bar shows Login in that slot, which opens the login modal.
  */
 
 /** Maps the current route segment to the nav's active key. */
@@ -38,6 +39,7 @@ function activeTab(segment: string | undefined): TabKey {
 export default function TabLayout() {
   const router = useRouter();
   const segments = useSegments();
+  const { isAuthenticated, patient } = useAuth();
 
   // segments is e.g. ['(tabs)', 'appointments'].
   const current = activeTab(segments[1] as string | undefined);
@@ -64,7 +66,13 @@ export default function TabLayout() {
         <Tabs.Screen name="profile" />
       </Tabs>
 
-      <BottomNav active={current} onTab={go} onBook={() => go('book')} />
+      <BottomNav
+        active={current}
+        onTab={go}
+        onBook={() => go('book')}
+        guest={!(isAuthenticated && patient)}
+        onLogin={() => router.push('/login')}
+      />
     </View>
   );
 }

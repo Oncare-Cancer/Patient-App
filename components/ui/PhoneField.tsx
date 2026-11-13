@@ -132,7 +132,9 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.medium,
     paddingVertical: SPACE.xs,
   },
-  code: { minWidth: 30, paddingHorizontal: 2 },
-  number: { flex: 1, fontFamily: FONTS.regular },
+  // A fixed width that fits four digits. Without one, a web <input> takes its
+  // default ~20-character width and the code ate half the box.
+  code: { width: 44, paddingHorizontal: 2 },
+  number: { flex: 1, minWidth: 0, fontFamily: FONTS.regular },
   error: { marginTop: SPACE.xxs },
 });

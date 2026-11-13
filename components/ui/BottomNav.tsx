@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, Compass, HeartPulse, User, Plus } from 'lucide-react-native';
+import { Home, Compass, HeartPulse, LogIn, User, Plus } from 'lucide-react-native';
 import { Txt } from './Txt';
 import { useT } from '@/contexts/LanguageContext';
 import {
@@ -30,7 +30,7 @@ type TabKey = 'home' | 'discover' | 'book' | 'myCare' | 'profile';
  *   Discover  articles, videos, centres, doctors, FAQs (was Explore)
  *   Book      consultation booking only
  *   My Care   appointments, requests and reports in one place
- *   Profile   details and settings; a login prompt for a guest
+ *   Profile   details and settings; signed-in only (a guest sees Login)
  */
 const TAB_ROUTES = {
   home: '/(tabs)',
@@ -70,10 +70,19 @@ export function BottomNav({
   active,
   onTab,
   onBook,
+  guest = false,
+  onLogin,
 }: {
   active: TabKey;
   onTab: (key: TabKey) => void;
   onBook: () => void;
+  /**
+   * Profile is for signed-in patients only, so a guest gets Login in its slot.
+   * Same place, so the bar keeps its shape and a returning patient finds the
+   * way in where their profile will be.
+   */
+  guest?: boolean;
+  onLogin?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const t = useT();
@@ -82,12 +91,16 @@ export function BottomNav({
   const right = TABS.slice(2);
   const bookActive = active === 'book';
 
-  const renderTab = ({ key, labelKey, Icon }: (typeof TABS)[number]) => {
-    const isActive = key === active;
+  const renderTab = (tab: (typeof TABS)[number]) => {
+    const asLogin = guest && tab.key === 'profile';
+    const { key } = tab;
+    const labelKey: StringKey = asLogin ? 'ui.login.login' : tab.labelKey;
+    const Icon = asLogin ? LogIn : tab.Icon;
+    const isActive = !asLogin && key === active;
     return (
       <Pressable
         key={key}
-        onPress={() => onTab(key)}
+        onPress={() => (asLogin && onLogin ? onLogin() : onTab(key))}
         accessibilityRole="tab"
         accessibilityState={{ selected: isActive }}
         style={styles.tab}

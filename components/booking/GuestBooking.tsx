@@ -299,6 +299,25 @@ export function GuestBooking() {
     { key: 'evening', label: t('ui.booking.evening'), hint: t('ui.booking.eveningHint') },
   ];
 
+  /** A request is not a booking, so say plainly what happens after it. */
+  const nextSteps = (
+    <Card tone="info" style={styles.nextCard}>
+      <Txt variant="helper">{t('ui.booking.whatHappensNext')}</Txt>
+      {[t('ui.booking.next1'), t('ui.booking.next2'), t('ui.booking.next3')].map((line, i) => (
+        <View key={line} style={styles.nextRow}>
+          <View style={styles.nextDot}>
+            <Txt variant="helperSm" color={PALETTE.white} script="latin">
+              {i + 1}
+            </Txt>
+          </View>
+          <Txt variant="helperSm" color={TEXT.secondary} style={styles.flex}>
+            {line}
+          </Txt>
+        </View>
+      ))}
+    </Card>
+  );
+
   if (step === 'done') {
     return (
       <View style={styles.root}>
@@ -336,6 +355,7 @@ export function GuestBooking() {
                   </View>
                 ))}
             </View>
+            {nextSteps}
             <Btn label={t('ui.booking.backToHome')} onPress={() => router.replace('/(tabs)')} />
           </Card>
         </Screen>
@@ -421,6 +441,7 @@ export function GuestBooking() {
               loading={loadingDoctors}
               selected={doctor && doctor !== 'any' ? asPractitioner(doctor) : null}
               nextFree={{}}
+              showAvailability={false}
               onViewProfile={(p) => {
                 if (p.profileId) router.push(`/doctor/${String(p.profileId)}`);
               }}
@@ -499,6 +520,8 @@ export function GuestBooking() {
               error={touched && !phoneOk ? t('ui.guest.phoneError') : undefined}
               containerStyle={styles.field}
             />
+
+            {nextSteps}
 
             <Btn
               label={t('ui.booking.sendRequest')}
@@ -612,6 +635,16 @@ const styles = StyleSheet.create({
   detailsTitle: { marginBottom: SPACE.sm },
   field: { marginBottom: SPACE.md },
   send: { marginTop: SPACE.xs },
+  nextCard: { gap: SPACE.xs, marginBottom: SPACE.md },
+  nextRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACE.xs },
+  nextDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: PALETTE.midnight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   loginRow: { minHeight: 44, justifyContent: 'center', marginTop: SPACE.xs },
   link: { textDecorationLine: 'underline' },
   doneCard: { alignItems: 'stretch', gap: SPACE.sm, paddingVertical: SPACE.xl },

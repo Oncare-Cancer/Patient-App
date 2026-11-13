@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import {
   UserRound,
@@ -37,6 +37,8 @@ import type { StringKey, TParams } from '@/constants/i18n';
 import { matchCentre, openDirections } from '@/services/directions';
 import { unreadNotificationCount } from '@/services/appNotifications';
 import { getCentres, type Centre } from '@/services/catalog';
+import { listVideos, type Video } from '@/services/content';
+import { ShortCard, VideoCard } from '@/components/discover/Cards';
 import {
   GRADIENT,
   PALETTE,
@@ -61,6 +63,7 @@ import {
  *   Login strip         - guest: "Already an Oncare patient? Log in..."
  *   Care services       - six tiles, the same for both
  *   Call me             - for someone who does not know where to start
+ *   Videos, Shorts      - a few from the library, "See all" opens Discover
  *
  * The old booking card with its search box is gone: finding a doctor lives in
  * Book now, and three search boxes for one list was the thing to fix.
@@ -178,6 +181,27 @@ export default function HomeScreen() {
       .catch(() => {});
   }, []);
 
+  /**
+   * A few videos and shorts, below the services. The effect runs after the
+   * first paint, so Home's own content is never held up by it; the library is
+   * cached for the session, so Discover opens on the same response without a
+   * refetch.
+   */
+  const [videos, setVideos] = useState<Video[]>([]);
+  useEffect(() => {
+    let alive = true;
+    listVideos()
+      .then((res) => {
+        if (alive) setVideos(res.videos);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const fullVideos = useMemo(() => videos.filter((v) => !v.short).slice(0, 6), [videos]);
+  const shortVideos = useMemo(() => videos.filter((v) => v.short).slice(0, 8), [videos]);
+
   const load = useCallback(async () => {
     // A guest has nothing of their own to load, and asking would raise the
     // "please log in" alert on the screen meant to welcome them.
@@ -268,6 +292,14 @@ export default function HomeScreen() {
       },
     ],
     [t, router]
+  );
+
+  const seeAll = (onPress: () => void) => (
+    <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button">
+      <Txt variant="helper" color={PALETTE.purple}>
+        {t('ui.discover.seeAll')}
+      </Txt>
+    </Pressable>
   );
 
   const name = patient?.patient_name ?? '';
@@ -443,6 +475,62 @@ export default function HomeScreen() {
           </View>
         </Card>
       </Pressable>
+
+      {/* Hidden until loaded, and if the library fails: no skeleton for an
+          optional section below the fold. */}
+      {fullVideos.length ? (
+        <>
+          <View style={styles.sectionGap}>
+            <SectionRow action={seeAll(() => router.push({ pathname: '/discover/videos' } as never))}>
+              <Txt variant="section">{t('ui.discover.videos')}</Txt>
+            </SectionRow>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.rail}
+            style={styles.bleed}
+          >
+            {fullVideos.map((v) => (
+              <VideoCard
+                key={v.id}
+                video={v}
+                width={220}
+                onPress={() =>
+                  router.push({ pathname: '/discover/video/[slug]', params: { slug: v.slug } } as never)
+                }
+              />
+            ))}
+          </ScrollView>
+        </>
+      ) : null}
+
+      {shortVideos.length ? (
+        <>
+          <View style={styles.sectionGap}>
+            <SectionRow action={seeAll(() => router.push({ pathname: '/discover/videos', params: { kind: 'short' } } as never))}>
+              <Txt variant="section">{t('ui.discover.shorts')}</Txt>
+            </SectionRow>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.rail}
+            style={styles.bleed}
+          >
+            {shortVideos.map((v) => (
+              <ShortCard
+                key={v.id}
+                video={v}
+                width={120}
+                onPress={() =>
+                  router.push({ pathname: '/discover/shorts', params: { start: v.slug } } as never)
+                }
+              />
+            ))}
+          </ScrollView>
+        </>
+      ) : null}
     </Screen>
   );
 }
@@ -520,6 +608,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACE.sm,
+  },
+  // Rails run edge to edge; the first card still lines up with the gutter.
+  bleed: {
+    marginHorizontal: -SPACE.gutter,
+  },
+  rail: {
+    gap: SPACE.sm,
+    paddingHorizontal: SPACE.gutter,
+    paddingBottom: SPACE.xs,
   },
   callMe: {
     backgroundColor: PALETTE.midnight,
