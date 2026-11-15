@@ -137,6 +137,8 @@ export function Field({
 const styles = StyleSheet.create({
   labelRow: {
     flexDirection: 'row',
+    // A long label wraps rather than being clipped at the edge.
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: SPACE.xxs,
     marginBottom: SPACE.xxs,

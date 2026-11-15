@@ -34,7 +34,7 @@ import { searchLabTests, type LabTest } from '@/services/catalog';
 import { type RequestLine } from '@/services/requests';
 import { useDraftSync } from '@/hooks/useDraftSync';
 import { readPrescription, needsCarefulCheck } from '@/services/prescriptionAi';
-import { uploadFiles, UploadError } from '@/services/upload';
+import { uploadFiles, UploadError, uploadFailureCode } from '@/services/upload';
 import { useUploadProgress } from '@/hooks/useUploadProgress';
 import { toastError } from '@/utils/toast';
 import {
@@ -168,9 +168,12 @@ export default function LabTests() {
       }
     } catch (err) {
       // The server's own words when it has them, e.g. which file was too big.
+      console.error('lab prescription upload failed:', err);
       toastError(
         t('ui.upload.uploadFailed'),
-        err instanceof UploadError ? err.userMessage : t('ui.common.retry')
+        err instanceof UploadError
+          ? err.userMessage
+          : `${t('ui.common.retry')} (${uploadFailureCode(err)})`
       );
     } finally {
       readUpload.reset();

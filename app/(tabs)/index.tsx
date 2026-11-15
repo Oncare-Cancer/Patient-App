@@ -295,7 +295,15 @@ export default function HomeScreen() {
   );
 
   const seeAll = (onPress: () => void) => (
-    <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button">
+    // Padding, not a hitSlop, and none below: a downward hitSlop reached over
+    // the card rail under the heading, which is drawn later and so won the
+    // tap - "See all" opened the first video instead.
+    <Pressable
+      onPress={onPress}
+      hitSlop={{ top: 8, left: 12, right: 12, bottom: 0 }}
+      accessibilityRole="button"
+      style={{ paddingVertical: 6, paddingLeft: 12 }}
+    >
       <Txt variant="helper" color={PALETTE.purple}>
         {t('ui.discover.seeAll')}
       </Txt>

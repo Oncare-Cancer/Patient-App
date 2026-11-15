@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, TextProps, StyleSheet } from 'react-native';
+import { Text, TextProps, StyleSheet, Platform } from 'react-native';
 import { TYPE, TEXT, FONTS, FONTS_DEVANAGARI } from '@/constants/theme';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -59,6 +59,11 @@ export function Txt({
 
   return (
     <Text
+      // Android only. The default 'highQuality' line breaker measures our
+      // custom fonts a few pixels short, so a label inside a row lost its last
+      // word ("Visit a centre" showed "Visit a", "Your question for the doctor"
+      // showed "...for the"). 'simple' measures what it draws.
+      textBreakStrategy={Platform.OS === 'android' ? 'simple' : undefined}
       {...rest}
       style={[
         base,

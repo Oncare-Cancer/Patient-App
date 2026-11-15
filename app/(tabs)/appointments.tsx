@@ -307,6 +307,10 @@ export default function Activity() {
 
       <Screen
         withNav
+        // Back to the top on every tab or filter change. Scrolled to the end of
+        // a long Cancelled list, a switch to a shorter view kept the offset,
+        // which is past the new content's end - the screen read as blank.
+        scrollResetKey={`${view}-${bucket}`}
         refreshing={refreshing}
         onRefresh={() => {
           setRefreshing(true);

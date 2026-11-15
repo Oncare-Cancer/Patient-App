@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchWrapper } from '@/utils/fetchWrapper';
 import { getApproxLocation, type ApproxLocation } from '@/services/location';
 import { guestDeviceKey, rememberGuestContact } from '@/services/guestIdentity';
@@ -136,8 +137,8 @@ export type OpsRequest = {
 /* ------------------------------------------------------------------- guest */
 
 /**
- * B4. Raises a lead with source "App – Guest" — no session required, which is
- * why this is the only request helper that skips auth.
+ * B4. A call-back. Works with or without a session: a guest's is a guest lead,
+ * a signed-in patient's is filed on their account.
  */
 export async function requestCallBack(body: {
   name: string;
@@ -151,15 +152,25 @@ export async function requestCallBack(body: {
   note?: string;
   origin?: RequestOrigin;
 }): Promise<{ requestId: string }> {
+  // Signed in: the session goes with it, so the server files the call-back on
+  // the patient's account - it shows in My Care and they are notified as it
+  // moves. The route is public, so a guest (no token) is never refused.
+  const signedIn = !!(await AsyncStorage.getItem('access_token'));
   const res = await fetchWrapper<any>('/requests/call-back', {
     method: 'POST',
-    // The device key lets this phone list the request in My Care later.
-    body: { ...body, ...(await locationField()), guestKey: await guestDeviceKey() },
-    skipAuth: true,
+    body: {
+      ...body,
+      ...(await locationField()),
+      // A guest's device key lets this phone list the request later.
+      ...(signedIn ? {} : { guestKey: await guestDeviceKey() }),
+    },
+    skipAuth: !signedIn,
   });
-  await rememberGuestContact({ name: body.name, phone: body.mobile, countryCode: body.countryCode ?? '91' });
-  // Not awaited: the permission prompt must not hold up the success screen.
-  void enableGuestPush();
+  if (!signedIn) {
+    await rememberGuestContact({ name: body.name, phone: body.mobile, countryCode: body.countryCode ?? '91' });
+    // Not awaited: the permission prompt must not hold up the success screen.
+    void enableGuestPush();
+  }
   return { requestId: res?.data?.requestId ?? '' };
 }
 

@@ -103,6 +103,22 @@ async function authHeaders(): Promise<Record<string, string>> {
  * message from the server stays a plain Error, so call sites can tell the
  * difference between "explain this" and "offer a retry".
  */
+/**
+ * Which step of an upload failed, as a short code: "presign-500", "put-403",
+ * "put-network", "complete-400". Shown small under the toast so a failure
+ * report from a tester says where it broke - the S3 PUT goes straight from
+ * the phone to S3 and never appears in our server logs.
+ */
+export function uploadFailureCode(err: unknown): string {
+  const m = err instanceof Error ? err.message : '';
+  const put = /S3 refused (?:the upload|a part): HTTP (\d+)/.exec(m);
+  if (put) return `put-${put[1]}`;
+  const step = /^(presign|complete) HTTP (\d+)/.exec(m);
+  if (step) return `${step[1]}-${step[2]}`;
+  if (/network|timed? ?out|connection/i.test(m)) return 'network';
+  return m ? m.slice(0, 40) : 'unknown';
+}
+
 export class UploadError extends Error {
   readonly userMessage: string;
 
@@ -122,7 +138,7 @@ async function api<T>(path: string, body: unknown): Promise<T> {
   const json = await res.json().catch(() => null);
   if (!res.ok || json?.code !== 1) {
     if (json?.message) throw new UploadError(String(json.message));
-    throw new Error(`HTTP ${res.status}`);
+    throw new Error(`${path.replace(/^\/upload\//, '')} HTTP ${res.status}`);
   }
   return json.data as T;
 }
